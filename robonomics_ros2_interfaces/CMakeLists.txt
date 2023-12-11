@@ -12,6 +12,7 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/RobonomicsROS2SendDatalog.srv"
   "srv/RobonomicsROS2SendLaunch.srv"
+  "srv/SendToIPFS.srv"
  )
 ament_export_dependencies(rosidl_default_runtime)
 
