@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>robonomics_ros2_interfaces</name>
+  <version>0.0.1</version>
+  <description>Description of all message/services types for Robonomics wrapper for ROS 2</description>
+  <maintainer email="berman@robonomics.network">Ivan Berman</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- Dependencies for tool that is executed during the build process -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Dependencies for interface generation executed during the build process -->
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+
+  <!-- Dependencies that are needed at execution-time  -->
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <!-- Dependency group of which the package is a member -->
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

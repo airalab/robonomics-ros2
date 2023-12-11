@@ -1,10 +1,10 @@
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import String
-
 from robonomicsinterface import Account, Datalog, Launch
 from substrateinterface import KeypairType
+
+from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
 
 
 class RobonomicsROS2Sender(Node):
@@ -37,68 +37,50 @@ class RobonomicsROS2Sender(Node):
             crypto_type = -1
         self.account = Account(seed=account_seed.value, crypto_type=crypto_type)
 
-        # Create subscription to topic for datalog
+        # Create service for sending datalog
         self.datalog = Datalog(self.account)
-        self.subscription_datalog = self.create_subscription(
-            String,
-            'robonomics/to/datalog',
-            self.datalog_sender_callback,
-            10
+        self.srv_send_datalog = self.create_service(
+            RobonomicsROS2SendDatalog,
+            'robonomics/send_datalog',
+            self.send_datalog_callback
         )
-        self.subscription_datalog
 
-        # Create subscription to topic with sub_address
-        self.sub_account_address = ''
-        self.ros2_subscription = self.create_subscription(
-            String,
-            'robonomics/launch_address',
-            self.robonomics_address_callback,
-            10)
-        self.ros2_subscription
-
-        # Create subscription to topic for launch param
+        # Create service for sending launch
         self.launch = Launch(self.account)
-        self.subscription_launch_param = self.create_subscription(
-            String,
-            'robonomics/to/launch_param/ipfs',
-            self.launch_sender_callback,
-            10
+        self.srv_send_launch = self.create_service(
+            RobonomicsROS2SendLaunch,
+            'robonomics/send_launch',
+            self.send_launch_callback
         )
-        self.subscription_launch_param
 
-    def robonomics_address_callback(self, msg):
+    def send_datalog_callback(self, request, response):
         """
-        Method for getting address of Robonomics account
-        :param msg: String
-        :return: None
+        Send datalog with specified string
+        :param request: datalog string
+        :param response: result message
+        :return: response
         """
-        self.sub_account_address = msg.data
-        self.get_logger().info('Received datalog address: %s' % self.sub_account_address)
+        self.datalog.record(request.datalog_content)
+        response.result = 'Sent msg to datalog: %s' % request.datalog_content
+        return response
 
-    def datalog_sender_callback(self, msg):
+    def send_launch_callback(self, request, response):
         """
-        Method that happened if the msg appears in topic for datalog
-        :param msg: String with datalog
-        :return: None
+        Send launch to specified address with specified param
+        :param request: address, param
+        :param response: result message
+        :return: response
         """
-        self.datalog.record(msg.data)
-        self.get_logger().info('Sent msg to datalog: %s' % msg.data)
-
-    def launch_sender_callback(self, msg):
-        """
-        Method that happened if the msg appears in topic for launch param
-        :param msg: String with launch param
-        :return: None
-        """
-        msg_param = msg.data
-        if msg_param.startswith("Qm"):
+        if request.param.startswith("Qm"):
             self.launch.launch(
-                self.sub_account_address,
-                msg_param
+                request.address,
+                request.param
             )
-            self.get_logger().info('Sent launch to %s with param: %s' % (self.sub_account_address, msg_param))
+            response.result = 'Sent launch to %s with param: %s' % (request.address, request.param)
+            return response
         else:
-            self.get_logger().warn("Only IPFS hashed accepted as param for launch")
+            response.result = "Only IPFS hashed accepted as param for launch"
+            return response
 
 
 def main(args=None):
