@@ -84,7 +84,7 @@ class RobonomicsROS2Receiver(Node):
         :return: None
         """
         self.sub_account_address = msg.data
-        self.get_logger().info('Received launch address: %s' % self.sub_account_address)
+        self.get_logger().info('Received datalog address: %s' % self.sub_account_address)
 
     def datalog_receiver_callback(self):
         """
@@ -106,7 +106,8 @@ class RobonomicsROS2Receiver(Node):
         launch_param_msg = String()
         launch_param_msg.data = ipfs_32_bytes_to_qm_hash(raw_data[2])
         self.get_logger().info("Getting launch from %s with param: %s" % (
-            launching_account_address, launch_param_msg.data)
+            launching_account_address,
+            launch_param_msg.data)
                                )
         self.launch_publisher.publish(launch_param_msg)
 
