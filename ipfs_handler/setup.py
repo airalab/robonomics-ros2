@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import os
 from glob import glob
 
-package_name = 'ipfs_rosbag'
+package_name = 'ipfs_handler'
 
 setup(
     name=package_name,
@@ -23,7 +23,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'ipfs_rosbag_handler = ipfs_rosbag.ipfs_rosbag_handler:main',
+            'ipfs_handler_node = ipfs_handler.ipfs_handler_node:main',
         ],
     },
 )
