@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
 
-from robonomics_ros2_interfaces.srv import SendToIPFS
+from robonomics_ros2_interfaces.srv import UploadToIPFS, DownloadFromIPFS
 
 import ipfs_api
 
@@ -11,17 +11,23 @@ class IPFSHandlerNode(Node):
 
     def __init__(self):
         """
-        Class for
+        Class for processing IPFS files
         """
         super().__init__('ipfs_handler_node')
 
-        self.srv_send_to_ipfs = self.create_service(
-            SendToIPFS,
-            'ipfs/send_file',
-            self.send_to_ipfs_callback
+        self.srv_upload = self.create_service(
+            UploadToIPFS,
+            'ipfs/upload',
+            self.upload_callback
         )
 
-    def send_to_ipfs_callback(self, request, response):
+        self.srv_download = self.create_service(
+            DownloadFromIPFS,
+            'ipfs/download',
+            self.download_callback
+        )
+
+    def upload_callback(self, request, response):
         """
         Service for pushing files to IPFS, required a working IPFS daemon
         :param request: file name
@@ -30,6 +36,20 @@ class IPFSHandlerNode(Node):
         """
         try:
             response.cid = ipfs_api.publish(get_package_share_directory('ipfs_handler')+"/ipfs_files/"+request.file_name)
+            return response
+        except ConnectionRefusedError:
+            return self.get_logger().error("Check if IPFS daemon is working")
+
+    def download_callback(self, request, response):
+        """
+        Service for download files from IPFS, required a working IPFS daemon
+        :param request: file's CID
+        :param response: file name
+        :return: response
+        """
+        try:
+            ipfs_api.download(request.cid, get_package_share_directory('ipfs_handler')+"/ipfs_files/"+request.file_name)
+            response.result = "File downloaded to " + get_package_share_directory('ipfs_handler') + "/ipfs_files/"
             return response
         except ConnectionRefusedError:
             return self.get_logger().error("Check if IPFS daemon is working")
