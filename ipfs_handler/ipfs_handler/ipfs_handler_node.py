@@ -5,6 +5,10 @@ from ament_index_python.packages import get_package_share_directory
 from robonomics_ros2_interfaces.srv import UploadToIPFS, DownloadFromIPFS
 
 import ipfs_api
+import ipfshttpclient2
+
+import os
+import glob
 
 
 class IPFSHandlerNode(Node):
@@ -14,6 +18,17 @@ class IPFSHandlerNode(Node):
         Class for processing IPFS files
         """
         super().__init__('ipfs_handler_node')
+
+        # Check if IPFS daemon is ready
+        try:
+            self.get_logger().info("My IPFS ID is: " + ipfs_api.my_id())
+        except ipfshttpclient2.exceptions.ConnectionError:
+            self.get_logger().error("Check if IPFS daemon is working")
+            self.destroy_node()
+
+        self.ipfs_dir = 'ipfs_files'
+        self.get_logger().info("My IPFS files directory is: " +
+                               get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/")
 
         self.srv_upload = self.create_service(
             UploadToIPFS,
@@ -34,11 +49,9 @@ class IPFSHandlerNode(Node):
         :param response: CID of file
         :return: response
         """
-        try:
-            response.cid = ipfs_api.publish(get_package_share_directory('ipfs_handler')+"/ipfs_files/"+request.file_name)
-            return response
-        except ConnectionRefusedError:
-            return self.get_logger().error("Check if IPFS daemon is working")
+        response.cid = ipfs_api.publish(get_package_share_directory('ipfs_handler')
+                                        + "/" + self.ipfs_dir + "/" + request.file_name)
+        return response
 
     def download_callback(self, request, response):
         """
@@ -47,20 +60,36 @@ class IPFSHandlerNode(Node):
         :param response: file name
         :return: response
         """
-        try:
-            ipfs_api.download(request.cid, get_package_share_directory('ipfs_handler')+"/ipfs_files/"+request.file_name)
-            response.result = "File downloaded to " + get_package_share_directory('ipfs_handler') + "/ipfs_files/"
-            return response
-        except ConnectionRefusedError:
-            return self.get_logger().error("Check if IPFS daemon is working")
+        ipfs_api.download(request.cid, get_package_share_directory('ipfs_handler') +
+                          "/" + self.ipfs_dir + "/" + request.file_name)
+        response.result = "File downloaded"
+        return response
+
+    def __enter__(self):
+        """
+        Enter the object runtime context
+        :return: object itself
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Exit the object runtime context and delete all file from IPFS dir
+        :param exc_type: exception that caused the context to be exited
+        :param exc_val: exception value
+        :param exc_tb: exception traceback
+        :return: None
+        """
+        files_to_remove = glob.glob(get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/*")
+        for file in files_to_remove:
+            os.remove(file)
 
 
 def main(args=None):
     rclpy.init(args=args)
 
-    ipfs_handler_node = IPFSHandlerNode()
-
-    rclpy.spin(ipfs_handler_node)
+    with IPFSHandlerNode() as ipfs_handler_node:
+        rclpy.spin(ipfs_handler_node)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
