@@ -88,7 +88,10 @@ def main(args=None):
     rclpy.init(args=args)
 
     with IPFSHandlerNode() as ipfs_handler_node:
-        rclpy.spin(ipfs_handler_node)
+        try:
+            rclpy.spin(ipfs_handler_node)
+        except KeyboardInterrupt:
+            ipfs_handler_node.get_logger().warn("Killing the IPFS handler...")
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically

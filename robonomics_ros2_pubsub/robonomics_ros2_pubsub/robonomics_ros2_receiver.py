@@ -133,7 +133,10 @@ def main(args=None):
     rclpy.init(args=args)
 
     with RobonomicsROS2Receiver() as robonomics_ros2_receiver:
-        rclpy.spin(robonomics_ros2_receiver)
+        try:
+            rclpy.spin(robonomics_ros2_receiver)
+        except KeyboardInterrupt:
+            robonomics_ros2_receiver.get_logger().warn("Killing the receiver...")
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically

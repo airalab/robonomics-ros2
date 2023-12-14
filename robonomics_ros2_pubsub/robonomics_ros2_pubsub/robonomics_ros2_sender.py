@@ -82,13 +82,31 @@ class RobonomicsROS2Sender(Node):
             response.result = "Only IPFS hashed accepted as param for launch"
             return response
 
+    def __enter__(self):
+        """
+        Enter the object runtime context
+        :return: object itself
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Exit the object runtime context
+        :param exc_type: exception that caused the context to be exited
+        :param exc_val: exception value
+        :param exc_tb: exception traceback
+        :return: None
+        """
+
 
 def main(args=None):
     rclpy.init(args=args)
 
-    robonomics_ros2_sender = RobonomicsROS2Sender()
-
-    rclpy.spin(robonomics_ros2_sender)
+    with RobonomicsROS2Sender() as robonomics_ros2_sender:
+        try:
+            rclpy.spin(robonomics_ros2_sender)
+        except KeyboardInterrupt:
+            robonomics_ros2_sender.get_logger().warn("Killing the sender...")
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
