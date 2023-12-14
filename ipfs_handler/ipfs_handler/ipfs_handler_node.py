@@ -22,13 +22,12 @@ class IPFSHandlerNode(Node):
         # Check if IPFS daemon is ready
         try:
             self.get_logger().info("My IPFS ID is: " + ipfs_api.my_id())
+            self.ipfs_dir = 'ipfs_files'
+            self.get_logger().info("My IPFS files directory is: " +
+                                   get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/")
         except ipfshttpclient2.exceptions.ConnectionError:
             self.get_logger().error("Check if IPFS daemon is working")
             self.destroy_node()
-
-        self.ipfs_dir = 'ipfs_files'
-        self.get_logger().info("My IPFS files directory is: " +
-                               get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/")
 
         self.srv_upload = self.create_service(
             UploadToIPFS,
