@@ -7,6 +7,8 @@ from robonomicsinterface import Account, Datalog, Subscriber, SubEvent
 from robonomicsinterface.utils import ipfs_32_bytes_to_qm_hash
 from substrateinterface import KeypairType
 
+from robonomics_ros2_interfaces.srv import RobonomicsROS2ReceiveLastDatalog
+
 
 class RobonomicsROS2Receiver(Node):
 
@@ -42,25 +44,20 @@ class RobonomicsROS2Receiver(Node):
         self.datalog = Datalog(self.account)
         self.get_logger().info('My address is %s' % self.account_address)
 
-        # Create subscription to topic with sub_address
-        self.sub_account_address = ''
-        self.ros2_subscription = self.create_subscription(
-            String,
-            'robonomics/datalog_address',
-            self.robonomics_address_callback,
-            10)
-        self.ros2_subscription
+        # Create service for receiving last datalog from specified address
+        self.datalog = Datalog(self.account)
+        self.srv_send_datalog = self.create_service(
+            RobonomicsROS2ReceiveLastDatalog,
+            'robonomics/receive_last_datalog',
+            self.receive_last_datalog_callback
+        )
 
         # Publisher of datalog content for received address
         self.datalog_publisher = self.create_publisher(
             String,
-            'robonomics/from/datalog',
+            'robonomics/datalog',
             10
         )
-        self.datalog_timer = self.create_timer(
-            30,
-            self.datalog_receiver_callback
-        )  # 30 sec to publish datalog
 
         # Create subscription of launches for Robonomics node account itself
         self.robonomics_launch_subscriber = Subscriber(
@@ -73,28 +70,22 @@ class RobonomicsROS2Receiver(Node):
         # Publisher of launch param
         self.launch_publisher = self.create_publisher(
             String,
-            'robonomics/from/launch_param/ipfs',
+            'robonomics/launch_param',
             10
         )
 
-    def robonomics_address_callback(self, msg):
+    def receive_last_datalog_callback(self, request, response):
         """
-        Method for getting address of Robonomics account
-        :param msg: String
-        :return: None
+        Receive last datalog from specified address
+        :param request: string with address
+        :param response: result message
+        :return: response
         """
-        self.sub_account_address = msg.data
-        self.get_logger().info('Received datalog address: %s' % self.sub_account_address)
-
-    def datalog_receiver_callback(self):
-        """
-        Method for publish last datalog content from received Robonomics address
-        :return: None
-        """
-        if self.sub_account_address != '':
-            datalog_msg = String()
-            datalog_msg.data = str(self.datalog.get_item(self.sub_account_address))
-            self.datalog_publisher.publish(datalog_msg)
+        datalog_msg = String()
+        datalog_msg.data = str(self.datalog.get_item(request.address))
+        self.datalog_publisher.publish(datalog_msg)
+        response.result = 'Received datalog and published it to topic'
+        return response
 
     def launch_receiver_callback(self, raw_data):
         """
