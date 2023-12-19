@@ -6,8 +6,9 @@ from ament_index_python.packages import get_package_share_directory
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
 
-from robonomics_ros2_interfaces.srv import DownloadFromIPFS
+from robonomics_ros2_interfaces.srv import DownloadFromIPFS, UploadToIPFS, RobonomicsROS2SendDatalog
 
 import json
 import time
@@ -22,11 +23,13 @@ class TurtlesimRobonomics(Node):
         super().__init__('turtlesim_robonomics_handler')
 
         self.cmd_vel_file_name = 'turtle_cmd_vel.json'
+        self.pose_file_name = 'turtle_pose.json'
         self.ipfs_dir = 'ipfs_files'
 
+        # Callback group that prohibits async calls of callback functions
+        subscriber_callback_group = MutuallyExclusiveCallbackGroup()
         # Subscription for launch params (indicated callback group that cannot being executed
         # in parallel to avoid deadlocks)
-        subscriber_callback_group = MutuallyExclusiveCallbackGroup()
         self.subscriber_launch_param = self.create_subscription(
             String,
             'robonomics/launch_param',
@@ -36,23 +39,60 @@ class TurtlesimRobonomics(Node):
         )
         self.subscriber_launch_param  # prevent unused variable warning
 
-        # Creating service client for IPFS handler (indicated callback group that cannot being executed
+        # Subscription for turtlesim location data (indicated callback group that cannot being executed
         # in parallel to avoid deadlocks)
+        self.turtle_pose = Pose()
+        self.subscriber_pose = self.create_subscription(
+            Pose,
+            '/turtle1/pose',
+            self.subscriber_pose_callback,
+            10,
+            callback_group=subscriber_callback_group,
+        )
+        self.subscriber_pose  # prevent unused variable warning
+
+        # Callback group that prohibits async calls of callback functions
         client_callback_group = MutuallyExclusiveCallbackGroup()
-        self.ipfs_handler_client = self.create_client(
+        # Creating service clients for IPFS handler (indicated callback group that cannot being executed
+        # in parallel to avoid deadlocks)
+        self.ipfs_download_client = self.create_client(
             DownloadFromIPFS,
             'ipfs/download',
             callback_group=client_callback_group,
         )
         # Wait for availability of IPFS service
-        while not self.ipfs_handler_client.wait_for_service(timeout_sec=1.0):
+        while not self.ipfs_download_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn('IPFS handler service not available, waiting again...')
+
+        self.ipfs_upload_client = self.create_client(
+            UploadToIPFS,
+            'ipfs/upload',
+            callback_group=client_callback_group,
+        )
+        # Wait for availability of IPFS service
+        while not self.ipfs_upload_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('IPFS handler service not available, waiting again...')
+
+        self.send_datalog_client = self.create_client(
+            RobonomicsROS2SendDatalog,
+            'robonomics/send_datalog',
+            callback_group=client_callback_group,
+        )
 
         # Publisher of velocities, that got from launch params
         self.cmd_vel_publisher = self.create_publisher(
             Twist,
             '/turtle1/cmd_vel',
             10,
+        )
+
+        # Timer for sending datalogs with turtle pose (indicated callback group that cannot being executed
+        # in parallel to avoid deadlocks)
+        timer_callback_group = MutuallyExclusiveCallbackGroup()
+        self.timer_pose = self.create_timer(
+            60,
+            self.timer_pose_callback,
+            callback_group=timer_callback_group,
         )
 
     def subscriber_launch_param_callback(self, msg):
@@ -68,6 +108,14 @@ class TurtlesimRobonomics(Node):
         # Publishing received content of file to topic
         self.publish_to_cmd_vel()
 
+    def subscriber_pose_callback(self, msg):
+        """
+        Method for receiving pose msgs from turtlesim
+        :param msg: msg with turtlesim/msg/Pose type
+        :return: None
+        """
+        self.turtle_pose = msg
+
     def ipfs_download_request(self, cid, file_name):
         """
         Request function to download IPFS file
@@ -80,7 +128,33 @@ class TurtlesimRobonomics(Node):
         request.cid = cid
         request.file_name = file_name
         # Make request and wait for its execution
-        future = self.ipfs_handler_client.call_async(request)
+        future = self.ipfs_download_client.call_async(request)
+        self.executor.spin_until_future_complete(future)
+
+        return future.result()
+
+    def send_datalog_request(self, datalog_content):
+        """
+        Request function to send datalog
+        :param datalog_content: string with data
+        :return: result
+        """
+        request = RobonomicsROS2SendDatalog.Request()
+        request.datalog_content = datalog_content
+        future = self.send_datalog_client.call_async(request)
+        self.executor.spin_until_future_complete(future)
+
+        return future.result()
+
+    def ipfs_upload_request(self, file_name):
+        """
+        Request function to upload IPFS file
+        :param file_name: name for file
+        :return: cid
+        """
+        request = UploadToIPFS.Request()
+        request.file_name = file_name
+        future = self.ipfs_upload_client.call_async(request)
         self.executor.spin_until_future_complete(future)
 
         return future.result()
@@ -107,6 +181,31 @@ class TurtlesimRobonomics(Node):
             time.sleep(2)
         self.get_logger().info("Finished publishing cmd vel")
         file.close()
+
+    def timer_pose_callback(self):
+        """
+        Timer callback that publish datalogs with IPFS hash each timer period
+        :return: None
+        """
+        # Preparing file
+        file = open(get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/" + self.pose_file_name, 'w')
+        data = {
+            'x': float(self.turtle_pose.x),
+            'y': float(self.turtle_pose.y),
+            'theta': float(self.turtle_pose.theta),
+            'linear_velocity': float(self.turtle_pose.linear_velocity),
+            'angular_velocity': float(self.turtle_pose.angular_velocity),
+        }
+        json_object = json.dumps(data, indent=4)
+        file.write(json_object)
+        file.close()
+
+        # Upload file to IPFS
+        response_ipfs = self.ipfs_upload_request(self.pose_file_name)
+
+        # Sending datalog
+        response_datalog = self.send_datalog_request(response_ipfs.cid)
+        self.get_logger().info(response_datalog.result)
 
     def __enter__(self):
         """
