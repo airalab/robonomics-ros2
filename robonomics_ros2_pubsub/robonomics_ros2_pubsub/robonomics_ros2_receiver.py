@@ -46,7 +46,7 @@ class RobonomicsROS2Receiver(Node):
 
         # Create service for receiving last datalog from specified address
         self.datalog = Datalog(self.account)
-        self.srv_send_datalog = self.create_service(
+        self.srv_receive_last_datalog = self.create_service(
             RobonomicsROS2ReceiveLastDatalog,
             'robonomics/receive_last_datalog',
             self.receive_last_datalog_callback
