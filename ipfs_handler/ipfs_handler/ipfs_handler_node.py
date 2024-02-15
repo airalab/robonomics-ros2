@@ -1,6 +1,9 @@
 import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
+
 
 from robonomics_ros2_interfaces.srv import UploadToIPFS, DownloadFromIPFS
 
@@ -27,18 +30,22 @@ class IPFSHandlerNode(Node):
                                    get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/")
         except ipfshttpclient2.exceptions.ConnectionError:
             self.get_logger().error("Check if IPFS daemon is working")
-            self.destroy_node()
+            self.executor.remove_node(self)
+
+        ipfs_handler_callback_group = ReentrantCallbackGroup()
 
         self.srv_upload = self.create_service(
             UploadToIPFS,
             'ipfs/upload',
-            self.upload_callback
+            self.upload_callback,
+            callback_group=ipfs_handler_callback_group,
         )
 
         self.srv_download = self.create_service(
             DownloadFromIPFS,
             'ipfs/download',
-            self.download_callback
+            self.download_callback,
+            callback_group=ipfs_handler_callback_group,
         )
 
     def upload_callback(self, request, response):
@@ -87,18 +94,17 @@ class IPFSHandlerNode(Node):
 def main(args=None):
     rclpy.init(args=args)
 
+    executor = MultiThreadedExecutor()
+
     with IPFSHandlerNode() as ipfs_handler_node:
         try:
-            rclpy.spin(ipfs_handler_node)
+            executor.add_node(ipfs_handler_node)
+            executor.spin()
         except KeyboardInterrupt:
             ipfs_handler_node.get_logger().warn("Killing the IPFS handler...")
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    ipfs_handler_node.destroy_node()
-    rclpy.shutdown()
+            executor.remove_node(ipfs_handler_node)
 
 
 if __name__ == '__main__':
     main()
+
