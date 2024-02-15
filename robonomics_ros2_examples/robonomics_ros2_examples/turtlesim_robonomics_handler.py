@@ -26,39 +26,33 @@ class TurtlesimRobonomics(Node):
         self.pose_file_name = 'turtle_pose.json'
         self.ipfs_dir = 'ipfs_files'
 
-        # Callback group that prohibits async calls of callback functions
-        subscriber_callback_group = MutuallyExclusiveCallbackGroup()
-        # Subscription for launch params (indicated callback group that cannot being executed
-        # in parallel to avoid deadlocks)
+        # Callback group for avoiding deadlocks
+        launch_callback_group = MutuallyExclusiveCallbackGroup()
+        datalog_callback_group = MutuallyExclusiveCallbackGroup()
+        # Subscription for launch params
         self.subscriber_launch_param = self.create_subscription(
             String,
             'robonomics/launch_param',
             self.subscriber_launch_param_callback,
             10,
-            callback_group=subscriber_callback_group,
         )
         self.subscriber_launch_param  # prevent unused variable warning
 
-        # Subscription for turtlesim location data (indicated callback group that cannot being executed
-        # in parallel to avoid deadlocks)
+        # Subscription for turtlesim location data
         self.turtle_pose = Pose()
         self.subscriber_pose = self.create_subscription(
             Pose,
             '/turtle1/pose',
             self.subscriber_pose_callback,
             10,
-            callback_group=subscriber_callback_group,
         )
         self.subscriber_pose  # prevent unused variable warning
 
-        # Callback group that prohibits async calls of callback functions
-        client_callback_group = MutuallyExclusiveCallbackGroup()
-        # Creating service clients for IPFS handler (indicated callback group that cannot being executed
-        # in parallel to avoid deadlocks)
+        # Creating service clients for IPFS handler
         self.ipfs_download_client = self.create_client(
             DownloadFromIPFS,
             'ipfs/download',
-            callback_group=client_callback_group,
+            callback_group=launch_callback_group,
         )
         # Wait for availability of IPFS service
         while not self.ipfs_download_client.wait_for_service(timeout_sec=1.0):
@@ -67,7 +61,7 @@ class TurtlesimRobonomics(Node):
         self.ipfs_upload_client = self.create_client(
             UploadToIPFS,
             'ipfs/upload',
-            callback_group=client_callback_group,
+            callback_group=datalog_callback_group,
         )
         # Wait for availability of IPFS service
         while not self.ipfs_upload_client.wait_for_service(timeout_sec=1.0):
@@ -76,7 +70,7 @@ class TurtlesimRobonomics(Node):
         self.send_datalog_client = self.create_client(
             RobonomicsROS2SendDatalog,
             'robonomics/send_datalog',
-            callback_group=client_callback_group,
+            callback_group=datalog_callback_group,
         )
 
         # Publisher of velocities, that got from launch params
@@ -86,13 +80,10 @@ class TurtlesimRobonomics(Node):
             10,
         )
 
-        # Timer for sending datalogs with turtle pose (indicated callback group that cannot being executed
-        # in parallel to avoid deadlocks)
-        timer_callback_group = MutuallyExclusiveCallbackGroup()
+        # Timer for sending datalogs with turtle pose
         self.timer_pose = self.create_timer(
             60,
             self.timer_pose_callback,
-            callback_group=timer_callback_group,
         )
 
     def subscriber_launch_param_callback(self, msg):
@@ -226,7 +217,7 @@ class TurtlesimRobonomics(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    # Creating multithreaded executor to make proper callback orchestration
+
     executor = MultiThreadedExecutor()
 
     with TurtlesimRobonomics() as turtlesim_robonomics_handler:
@@ -235,13 +226,9 @@ def main(args=None):
             executor.spin()
         except KeyboardInterrupt:
             turtlesim_robonomics_handler.get_logger().warn("Killing the turtlesim_robonomics_handler...")
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    turtlesim_robonomics_handler.destroy_node()
-    rclpy.shutdown()
+            executor.remove_node(turtlesim_robonomics_handler)
 
 
 if __name__ == '__main__':
     main()
+
