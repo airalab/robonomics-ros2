@@ -1,5 +1,7 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from robonomicsinterface import Account, Datalog, Launch
 from substrateinterface import KeypairType
@@ -36,13 +38,15 @@ class RobonomicsROS2Sender(Node):
         else:
             crypto_type = -1
         self.account = Account(seed=account_seed.value, crypto_type=crypto_type)
+        sender_callback_group = MutuallyExclusiveCallbackGroup()
 
         # Create service for sending datalog
         self.datalog = Datalog(self.account)
         self.srv_send_datalog = self.create_service(
             RobonomicsROS2SendDatalog,
             'robonomics/send_datalog',
-            self.send_datalog_callback
+            self.send_datalog_callback,
+            callback_group=sender_callback_group,
         )
 
         # Create service for sending launch
@@ -50,7 +54,8 @@ class RobonomicsROS2Sender(Node):
         self.srv_send_launch = self.create_service(
             RobonomicsROS2SendLaunch,
             'robonomics/send_launch',
-            self.send_launch_callback
+            self.send_launch_callback,
+            callback_group=sender_callback_group,
         )
 
     def send_datalog_callback(self, request, response):
@@ -102,17 +107,15 @@ class RobonomicsROS2Sender(Node):
 def main(args=None):
     rclpy.init(args=args)
 
+    executor = MultiThreadedExecutor()
+
     with RobonomicsROS2Sender() as robonomics_ros2_sender:
         try:
-            rclpy.spin(robonomics_ros2_sender)
+            executor.add_node(robonomics_ros2_sender)
+            executor.spin()
         except KeyboardInterrupt:
-            robonomics_ros2_sender.get_logger().warn("Killing the sender...")
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    robonomics_ros2_sender.destroy_node()
-    rclpy.shutdown()
+            robonomics_ros2_sender.get_logger().warn("Killing the Robonomics sender node...")
+            executor.remove_node(robonomics_ros2_sender)
 
 
 if __name__ == '__main__':
