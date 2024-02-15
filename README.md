@@ -107,6 +107,7 @@ Make sure you have the following software installed:
 * Linux OS distribution (tested on [Ubuntu 22.04.3](https://releases.ubuntu.com/jammy/))
 * ROS 2 distribution (tested on [Humble version](https://docs.ros.org/en/humble/Installation.html))
 * [Python 3](https://www.python.org/downloads/) (tested on 3.10.12)
+* [IPFS node](https://docs.ipfs.tech/) (tested on [IPFS Kubo](https://docs.ipfs.tech/install/command-line/) 0.26.0)
 * Python module with [robonomics-interface](https://pypi.org/project/robonomics-interface/):
     ```shell
     pip install robonomics-interface
