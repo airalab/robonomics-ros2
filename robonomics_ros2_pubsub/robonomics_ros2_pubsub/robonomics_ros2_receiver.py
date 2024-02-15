@@ -1,5 +1,7 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from std_msgs.msg import String
 
@@ -44,19 +46,24 @@ class RobonomicsROS2Receiver(Node):
         self.datalog = Datalog(self.account)
         self.get_logger().info('My address is %s' % self.account_address)
 
+        # Callback group for allowing parallel running
+        receive_datalog_callback_group = MutuallyExclusiveCallbackGroup()
+
         # Create service for receiving last datalog from specified address
         self.datalog = Datalog(self.account)
         self.srv_receive_last_datalog = self.create_service(
             RobonomicsROS2ReceiveLastDatalog,
             'robonomics/receive_last_datalog',
-            self.receive_last_datalog_callback
+            self.receive_last_datalog_callback,
+            callback_group=receive_datalog_callback_group,
         )
 
         # Publisher of datalog content for received address
         self.datalog_publisher = self.create_publisher(
             String,
             'robonomics/datalog',
-            10
+            10,
+            callback_group=receive_datalog_callback_group,
         )
 
         # Create subscription of launches for Robonomics node account itself
@@ -123,17 +130,15 @@ class RobonomicsROS2Receiver(Node):
 def main(args=None):
     rclpy.init(args=args)
 
+    executor = MultiThreadedExecutor()
+
     with RobonomicsROS2Receiver() as robonomics_ros2_receiver:
         try:
-            rclpy.spin(robonomics_ros2_receiver)
+            executor.add_node(robonomics_ros2_receiver)
+            executor.spin()
         except KeyboardInterrupt:
-            robonomics_ros2_receiver.get_logger().warn("Killing the receiver...")
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    robonomics_ros2_receiver.destroy_node()
-    rclpy.shutdown()
+            robonomics_ros2_receiver.get_logger().warn("Killing the Robonomics receiver node...")
+            executor.remove_node(robonomics_ros2_receiver)
 
 
 if __name__ == '__main__':
