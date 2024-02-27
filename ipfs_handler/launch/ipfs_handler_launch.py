@@ -1,14 +1,34 @@
+import subprocess
+
 from launch import SomeActionsType
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import ExecuteProcess, RegisterEventHandler
+from launch.actions import ExecuteProcess, RegisterEventHandler, LogInfo
 from launch.event_handlers import OnProcessIO
 from launch.events.process import ProcessIO
 from launch.substitutions import FindExecutable
 
 
-# Create event handler that waits for an output message and then returns actions
+def process_status(process_name):
+    """
+    Check if process is already running
+    :param process_name: Name of process
+    :return: Running status
+    """
+    try:
+        subprocess.check_output(["pgrep", process_name])
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
 def on_matching_output(match_msg: str, action: SomeActionsType):
+    """
+    Create event handler that waits for an output message and then returns actions
+    :param match_msg: string with msg for checking
+    :param action: actions for executing
+    :return: Actions
+    """
     def on_output(event: ProcessIO):
         for line in event.text.decode().splitlines():
             if match_msg in line:
@@ -52,6 +72,14 @@ def generate_launch_description():
         )
     )
 
-    ld.add_action(ipfs_daemon)
-    ld.add_action(ipfs_daemon_event)
+    # Check if IPFS is already running and start it otherwise
+    if process_status('ipfs'):
+        ld.add_action(LogInfo(
+            msg='Found already run IPFS daemon')
+        )
+        ld.add_action(ipfs_handler_node)
+    else:
+        ld.add_action(ipfs_daemon)
+        ld.add_action(ipfs_daemon_event)
+
     return ld
