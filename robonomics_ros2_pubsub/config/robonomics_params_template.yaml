@@ -1,4 +1,8 @@
-/robonomics_ros2_**:
-   ros__parameters:
-     seed: ''
-     crypto_type: ''
+/**:
+  ros__parameters:
+    seed: ''
+    crypto_type: ''
+
+/ipfs_handler_node:
+  ros__parameters:
+    ipfs_files_path: false # Change this param to full path of your directory, e.g. '/home/user/ipfs_files/'
