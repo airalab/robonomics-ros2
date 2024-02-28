@@ -2,12 +2,12 @@ import rclpy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
-from ament_index_python.packages import get_package_share_directory
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from turtlesim.msg import Pose
 
+from rcl_interfaces.srv import GetParameters
 from robonomics_ros2_interfaces.srv import DownloadFromIPFS, UploadToIPFS, RobonomicsROS2SendDatalog
 
 import json
@@ -24,9 +24,26 @@ class TurtlesimRobonomics(Node):
 
         self.cmd_vel_file_name = 'turtle_cmd_vel.json'
         self.pose_file_name = 'turtle_pose.json'
-        self.ipfs_dir = 'ipfs_files'
 
-        # Callback group for avoiding deadlocks
+        # Create service for getting IPFS path param
+        self.ipfs_node_get_param_client = self.create_client(
+            GetParameters,
+            '/ipfs_handler_node/get_parameters',
+        )
+        # Wait for availability of service
+        while not self.ipfs_node_get_param_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Parameter service not ready, retrying...')
+
+        # Make request for getting IPFS path
+        request = GetParameters.Request()
+        request.names = ["ipfs_files_path"]
+        future = self.ipfs_node_get_param_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
+        # the constructor has not yet created an executor
+        self.ipfs_dir = future.result().values[0].string_value
+        self.get_logger().info(self.ipfs_dir)
+
+        # Callback groups for avoiding deadlocks
         launch_callback_group = MutuallyExclusiveCallbackGroup()
         datalog_callback_group = MutuallyExclusiveCallbackGroup()
         # Subscription for launch params
@@ -35,6 +52,7 @@ class TurtlesimRobonomics(Node):
             'robonomics/launch_param',
             self.subscriber_launch_param_callback,
             10,
+            callback_group=launch_callback_group,
         )
         self.subscriber_launch_param  # prevent unused variable warning
 
@@ -157,7 +175,7 @@ class TurtlesimRobonomics(Node):
         """
         msg = Twist()
 
-        file = open(get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/" + self.cmd_vel_file_name)
+        file = open(self.ipfs_dir + self.cmd_vel_file_name)
         data = json.load(file)
 
         for i in range(0, len(data['linear']['x'])):
@@ -179,7 +197,7 @@ class TurtlesimRobonomics(Node):
         :return: None
         """
         # Preparing file
-        file = open(get_package_share_directory('ipfs_handler') + "/" + self.ipfs_dir + "/" + self.pose_file_name, 'w')
+        file = open(self.ipfs_dir + self.pose_file_name, 'w')
         data = {
             'x': float(self.turtle_pose.x),
             'y': float(self.turtle_pose.y),
@@ -231,4 +249,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-

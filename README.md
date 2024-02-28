@@ -108,7 +108,7 @@ Make sure you have the following software installed:
 * ROS 2 distribution (tested on [Humble version](https://docs.ros.org/en/humble/Installation.html))
 * [Python 3](https://www.python.org/downloads/) (tested on 3.10.12)
 * [IPFS node](https://docs.ipfs.tech/) (tested on [IPFS Kubo](https://docs.ipfs.tech/install/command-line/) 0.26.0)
-* Project specific required Python modules can be installed via:
+* Project specific Python modules can be installed via:
     ```shell
     pip install -r requirements.txt
     ```
