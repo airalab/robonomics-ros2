@@ -1,3 +1,8 @@
+import os
+import yaml
+
+from ament_index_python.packages import get_package_share_directory
+
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
@@ -21,27 +26,25 @@ class RobonomicsROS2Receiver(Node):
         """
         super().__init__('robonomics_ros2_receiver')
 
-        # Declare used parameters
-        self.declare_parameters(
-            namespace='',
-            parameters=[
-                ('seed', rclpy.Parameter.Type.STRING),
-                ('crypto_type', rclpy.Parameter.Type.STRING),
-            ]
+        # Find config file with account params
+        config = os.path.join(
+            get_package_share_directory('robonomics_ros2_pubsub'),
+            'config',
+            'robonomics_params.yaml'
         )
-
-        # Get used parameters for account creation
-        account_seed = self.get_parameter('seed')
-        account_type = self.get_parameter('crypto_type')
+        with open(config, 'r') as config_file:
+            params_dict = yaml.load(config_file, Loader=yaml.SafeLoader)
+            account_seed = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['seed']
+            account_type = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['crypto_type']
 
         # Checking the type of account and creating it
-        if account_type.value == 'ED25519':
+        if account_type == 'ED25519':
             crypto_type = KeypairType.ED25519
-        elif account_type.value == 'SR25519':
+        elif account_type == 'SR25519':
             crypto_type = KeypairType.SR25519
         else:
             crypto_type = -1
-        self.account = Account(seed=account_seed.value, crypto_type=crypto_type)
+        self.account = Account(seed=account_seed, crypto_type=crypto_type)
         self.account_address = self.account.get_address()
         self.datalog = Datalog(self.account)
         self.get_logger().info('My address is %s' % self.account_address)

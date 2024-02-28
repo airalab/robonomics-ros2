@@ -10,7 +10,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
     ld = LaunchDescription()
 
-    # Preparing config file with params
+    # Find config file with params
     config = os.path.join(
         get_package_share_directory('robonomics_ros2_pubsub'),
         'config',
@@ -32,14 +32,12 @@ def generate_launch_description():
     sender_node = Node(
         package='robonomics_ros2_pubsub',
         executable='robonomics_ros2_sender',
-        parameters=[config]
     )
 
     # Creating node for receiver
     receiver_node = Node(
         package='robonomics_ros2_pubsub',
         executable='robonomics_ros2_receiver',
-        parameters=[config]
     )
 
     # Create IPFS handler from its package
