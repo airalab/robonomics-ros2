@@ -1,7 +1,7 @@
 /robonomics_ros2_pubsub:
   ros__parameters:
     seed: ''
-    crypto_type: ''
+    crypto_type: '' # 'ED25519' or 'SR25519'
 
 /ipfs_handler_node:
   ros__parameters:

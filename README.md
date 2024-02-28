@@ -86,7 +86,7 @@ For convenience, the project is divided into several ROS 2 packages:
     ├── robonomics_ros2_interfaces              # A package that describes all types of ROS 2 services and messages
     ├── robonomics_ros2_pubsub                  # Main package for interaction with Robonomics
     │   ├── config
-    │   │   ├── account_params_template.yaml    # Config file for Robonomics account credentials
+    │   │   ├── robonomics_params_template.yaml # Config file for account credentials, IPFS directory, etc.
     │   ├── robonomics_ros2_pubsub              
     │   │   ├── ...
     │   │   ├── robonomics_ros2_receiver.py     # ROS 2 node for receiving launch commands and datalog content 
@@ -108,13 +108,9 @@ Make sure you have the following software installed:
 * ROS 2 distribution (tested on [Humble version](https://docs.ros.org/en/humble/Installation.html))
 * [Python 3](https://www.python.org/downloads/) (tested on 3.10.12)
 * [IPFS node](https://docs.ipfs.tech/) (tested on [IPFS Kubo](https://docs.ipfs.tech/install/command-line/) 0.26.0)
-* Python module with [robonomics-interface](https://pypi.org/project/robonomics-interface/):
+* Project specific required Python modules can be installed via:
     ```shell
-    pip install robonomics-interface
-    ```
-* Python module with [IPFS-Toolkit](https://pypi.org/project/IPFS-Toolkit/):
-    ```shell
-    pip install IPFS-Toolkit
+    pip install -r requirements.txt
     ```
 
 For testing:
@@ -145,10 +141,10 @@ https://wiki.robonomics.network/docs/create-account-in-dapp
    
 3. Copy and rename the configuration file template:
     ```shell
-    cp robonomics_ros2_pubsub/config/account_params_template.yaml robonomics_ros2_pubsub/config/account_params.yaml
+    cp robonomics_ros2_pubsub/config/robonomics_params_template.yaml robonomics_ros2_pubsub/config/robonomics_params.yaml
     ```
    
-4. Insert the account seed phrase and the account type into new `account_params.yaml` file:
+4. Insert the account seed phrase and the account type into new `robonomics_params.yaml` file:
     ```yaml
     /**:
       ros__parameters:
@@ -158,6 +154,9 @@ https://wiki.robonomics.network/docs/create-account-in-dapp
    
    > **WARNING**: The seed phrase is sensitive information that allows anyone to use your account. Make sure you don't 
    > upload a config file with it to GitHub or anywhere else.
+   
+   You may also want to change the directory where the files for IPFS will be stored. To do this, change the parameter
+   `ipfs_files_path`.
 
 5. Then you can test the repository with turtlesim package or make your own robot integration. Anyway, after that
 you need to build the package. From `your_project_ws` directory run:
@@ -256,7 +255,13 @@ the param. Submit transaction and watch for the simulation.
 When programming your own robot, you will need to create an integration that will use all the wrapper services and topic.
 > **NOTE**: The node should use `MultiThreadedExecutor()` and `MutuallyExclusiveCallbackGroup()` to avoid deadlocks, when
 > one callback function calls another callback function. Please, read more about this issue [here](https://docs.ros.org/en/humble/How-To-Guides/Using-callback-groups.html).
-
+> It is recommended to use different callback groups for launch and datalog processing:
+```python
+...
+launch_callback_group = MutuallyExclusiveCallbackGroup()
+datalog_callback_group = MutuallyExclusiveCallbackGroup()
+...
+```
 #### IPFS Services
 
 For your node, you will need to create two service client, for uploading and downloading files:
@@ -266,7 +271,7 @@ For your node, you will need to create two service client, for uploading and dow
 self.ipfs_upload_client = self.create_client(
     UploadToIPFS,
     'ipfs/upload',
-    callback_group=client_callback_group,
+    callback_group=datalog_callback_group,
 )
 ...
 def ipfs_upload_request(self, file_name):
@@ -282,7 +287,7 @@ def ipfs_upload_request(self, file_name):
 self.ipfs_download_client = self.create_client(
     DownloadFromIPFS,
     'ipfs/download',
-    callback_group=client_callback_group,
+    callback_group=launch_callback_group,
 )
 ...
 def ipfs_download_request(self, cid, file_name):
@@ -305,7 +310,7 @@ self.subscriber_launch_param = self.create_subscription(
     'robonomics/launch_param',
     self.subscriber_launch_param_callback,
     10,
-    callback_group=subscriber_callback_group,
+    callback_group=launch_callback_group,
 )
 self.subscriber_launch_param  # prevent unused variable warning
 ...
@@ -326,7 +331,7 @@ A service client, that sends a parameter to specified address:
 self.send_launch_client = self.create_client(
     RobonomicsROS2SendLaunch,
     'robonomics/send_launch',
-    callback_group=client_callback_group,
+    callback_group=launch_callback_group,
 )
 ...
 def send_launch_request(self, address, param):
@@ -348,7 +353,7 @@ A service client, that receives a content of last datalog from specified address
 self.receive_last_datalog_client = self.create_client(
     RobonomicsROS2ReceiveLastDatalog,
     'robonomics/receive_last_datalog',
-    callback_group=client_callback_group,
+    callback_group=datalog_callback_group,
 )
 ...
 def receive_last_datalog_request(self, address):
@@ -370,7 +375,7 @@ class to control how often data is sent (sending too often can drain your accoun
 self.send_datalog_client = self.create_client(
     RobonomicsROS2SendDatalog,
     'robonomics/send_datalog',
-    callback_group=client_callback_group,
+    callback_group=datalog_callback_group,
 )
 ...
 def send_datalog_request(self, datalog_content):
@@ -383,16 +388,16 @@ def send_datalog_request(self, datalog_content):
 self.datalog_timer = self.create_timer(
     60, # secs
     self.datalog_timer_callback,
-    callback_group=timer_callback_group,
 )
 ...
 def datalog_timer_callback(self):
    # Preparing IPFS file
    ...
    # Upload file to IPFS
+   response_ipfs = self.ipfs_upload_request(self.file_name)
    ...
    # Sending datalog
-   response_datalog = self.send_datalog_request(datalog_content)
+   response_datalog = self.send_datalog_request(response_ipfs.cid)
 ...
 ```
 
@@ -403,6 +408,7 @@ def datalog_timer_callback(self):
 
 - [x] Add basic datalog and launch functions
 - [x] Add IPFS support
+- [ ] Add file encryption
 - [ ] Add checks for IPFS file availability
 - [ ] Add support for RWS calls
 - [ ] Add digital twin functionality
