@@ -2,8 +2,8 @@
   ros__parameters:
     seed: ''
     crypto_type: '' # 'ED25519' or 'SR25519'
-    recipient_address: '' # Address for sending encrypted data
-    sender_address: ''    # Address for receiving encrypted data
+    recipient_address: '' # An address that can open an encrypted file
+    sender_address: ''    # An address from which the encrypted file can be opened by a robot
 
 /ipfs_handler_node:
   ros__parameters:

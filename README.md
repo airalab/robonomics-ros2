@@ -88,7 +88,7 @@ For convenience, the project is divided into several ROS 2 packages:
     │   ├── config
     │   │   ├── robonomics_params_template.yaml # Config file for account credentials, IPFS directory, etc.
     │   ├── robonomics_ros2_pubsub              
-    │   │   ├── ...
+    │   │   ├── utils                           # Directory for various utility functions
     │   │   ├── robonomics_ros2_receiver.py     # ROS 2 node for receiving launch commands and datalog content 
     │   │   │                                   # from another account
     │   │   └── robonomics_ros2_sender.py       # ROS 2 node for sending launch commands and datalogs
@@ -253,12 +253,13 @@ the param. Submit transaction and watch for the simulation.
 ### Programming Your Node
 
 When programming your own robot, you will need to create an integration that will use all the wrapper services and topic.
-> **NOTE**: The node should use `MultiThreadedExecutor()` and `MutuallyExclusiveCallbackGroup()` to avoid deadlocks, when
-> one callback function calls another callback function. Please, read more about this issue [here](https://docs.ros.org/en/humble/How-To-Guides/Using-callback-groups.html).
-> It is recommended to use different callback groups for launch and datalog processing:
+> **NOTE**: The node should use `MultiThreadedExecutor()`, `MutuallyExclusiveCallbackGroup()` and `ReentrantCallbackGroup()` 
+> to avoid deadlocks, when one callback function calls another callback function. Please, read more about this issue
+> [here](https://docs.ros.org/en/humble/How-To-Guides/Using-callback-groups.html). It is recommended to use different 
+> callback groups for launch and datalog processing:
 ```python
 ...
-launch_callback_group = MutuallyExclusiveCallbackGroup()
+launch_callback_group = ReentrantCallbackGroup()
 datalog_callback_group = MutuallyExclusiveCallbackGroup()
 ...
 ```
@@ -401,6 +402,30 @@ def datalog_timer_callback(self):
 ...
 ```
 
+#### File Encryption and Decryption
+
+To protect your files before sending them to IPFS, you can encrypt them with your private key and give access only to 
+specified public key. To do this, you need to specify the recipient and sender public addresses in the config.
+
+```yaml
+/robonomics_ros2_pubsub:
+  ros__parameters:
+    ...
+    recipient_address: '' # An address that can open an encrypted file
+    sender_address: ''    # An address from which the encrypted file can be opened by a robot
+```
+
+The following functions are available for encrypting and decrypting files:
+
+```python
+from robonomics_ros2_pubsub.utils.crypto_utils import encrypt_file, decrypt_file
+...
+file_crypt = encrypt_file(file_name, ipfs_dir)  # Creates new file with encrypted data
+...
+decrypt_file(file_name, ipfs_dir)               # Rewrites encrypted file with decrypted data
+...
+```
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- ROADMAP -->
@@ -408,7 +433,7 @@ def datalog_timer_callback(self):
 
 - [x] Add basic datalog and launch functions
 - [x] Add IPFS support
-- [ ] Add file encryption
+- [x] Add file encryption
 - [ ] Add checks for IPFS file availability
 - [ ] Add support for RWS calls
 - [ ] Add digital twin functionality
