@@ -41,7 +41,6 @@ class TurtlesimRobonomics(Node):
         rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
         # the constructor has not yet created an executor
         self.ipfs_dir = future.result().values[0].string_value
-        self.get_logger().info(self.ipfs_dir)
 
         # Callback groups for avoiding deadlocks
         launch_callback_group = MutuallyExclusiveCallbackGroup()

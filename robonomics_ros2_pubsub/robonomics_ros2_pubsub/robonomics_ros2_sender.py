@@ -1,17 +1,12 @@
-import os
-import yaml
-
-from ament_index_python.packages import get_package_share_directory
-
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-from robonomicsinterface import Account, Datalog, Launch
-from substrateinterface import KeypairType
+from robonomicsinterface import Datalog, Launch
 
 from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
+from robonomics_ros2_pubsub.utils.crypto_utils import create_account
 
 
 class RobonomicsROS2Sender(Node):
@@ -22,27 +17,10 @@ class RobonomicsROS2Sender(Node):
         """
         super().__init__('robonomics_ros2_sender')
 
-        # Find config file with account params
-        config = os.path.join(
-            get_package_share_directory('robonomics_ros2_pubsub'),
-            'config',
-            'robonomics_params.yaml'
-        )
-        with open(config, 'r') as config_file:
-            params_dict = yaml.load(config_file, Loader=yaml.SafeLoader)
-            account_seed = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['seed']
-            account_type = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['crypto_type']
+        self.account = create_account()
 
-        # Checking the type of account and creating it
-        if account_type == 'ED25519':
-            crypto_type = KeypairType.ED25519
-        elif account_type == 'SR25519':
-            crypto_type = KeypairType.SR25519
-        else:
-            crypto_type = -1
-        self.account = Account(seed=account_seed, crypto_type=crypto_type)
+        # Callback group for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
-
         # Create service for sending datalog
         self.datalog = Datalog(self.account)
         self.srv_send_datalog = self.create_service(
