@@ -1,5 +1,5 @@
 import rclpy
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
@@ -9,6 +9,7 @@ from turtlesim.msg import Pose
 
 from rcl_interfaces.srv import GetParameters
 from robonomics_ros2_interfaces.srv import DownloadFromIPFS, UploadToIPFS, RobonomicsROS2SendDatalog
+from robonomics_ros2_pubsub.utils.crypto_utils import encrypt_file, decrypt_file
 
 import json
 import time
@@ -43,7 +44,7 @@ class TurtlesimRobonomics(Node):
         self.ipfs_dir = future.result().values[0].string_value
 
         # Callback groups for avoiding deadlocks
-        launch_callback_group = MutuallyExclusiveCallbackGroup()
+        launch_callback_group = ReentrantCallbackGroup()
         datalog_callback_group = MutuallyExclusiveCallbackGroup()
         # Subscription for launch params
         self.subscriber_launch_param = self.create_subscription(
@@ -174,6 +175,9 @@ class TurtlesimRobonomics(Node):
         """
         msg = Twist()
 
+        # Decrypting file
+        decrypt_file(self.cmd_vel_file_name, self.ipfs_dir)
+
         file = open(self.ipfs_dir + self.cmd_vel_file_name)
         data = json.load(file)
 
@@ -207,9 +211,10 @@ class TurtlesimRobonomics(Node):
         json_object = json.dumps(data, indent=4)
         file.write(json_object)
         file.close()
+        file_crypt = encrypt_file(self.pose_file_name, self.ipfs_dir)
 
         # Upload file to IPFS
-        response_ipfs = self.ipfs_upload_request(self.pose_file_name)
+        response_ipfs = self.ipfs_upload_request(file_crypt)
 
         # Sending datalog
         response_datalog = self.send_datalog_request(response_ipfs.cid)
