@@ -6,7 +6,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from robonomicsinterface import Launch
 
 from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
-from robonomics_ros2_pubsub.utils.crypto_utils import create_account, create_datalog_instance
+from robonomics_ros2_pubsub.utils.crypto_utils import create_account, create_launch_datalog_instance
 
 
 class RobonomicsROS2Sender(Node):
@@ -22,8 +22,8 @@ class RobonomicsROS2Sender(Node):
         # Callback group for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
 
-        # Initialize datalog
-        [self.datalog, rws_status] = create_datalog_instance(self.account)
+        # Initialize datalog and launch
+        [self.datalog, self.launch, rws_status] = create_launch_datalog_instance(self.account)
         self.get_logger().info(rws_status)
 
         # Create service for sending datalog
@@ -35,7 +35,6 @@ class RobonomicsROS2Sender(Node):
         )
 
         # Create service for sending launch
-        self.launch = Launch(self.account)
         self.srv_send_launch = self.create_service(
             RobonomicsROS2SendLaunch,
             'robonomics/send_launch',

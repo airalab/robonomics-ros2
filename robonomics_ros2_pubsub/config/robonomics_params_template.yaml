@@ -1,6 +1,6 @@
 /robonomics_ros2_pubsub:
   ros__parameters:
-    seed: ''
+    seed: ''                # Your account seed
     crypto_type: ''         # 'ED25519' or 'SR25519'
     recipient_address: ''   # An address that can open an encrypted file
     sender_address: ''      # An address from which the encrypted file can be opened by a robot

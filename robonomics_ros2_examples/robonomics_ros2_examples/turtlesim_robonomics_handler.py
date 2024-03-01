@@ -100,7 +100,7 @@ class TurtlesimRobonomics(Node):
 
         # Timer for sending datalogs with turtle pose
         self.timer_pose = self.create_timer(
-            60,
+            300,  # period in sec
             self.timer_pose_callback,
         )
 

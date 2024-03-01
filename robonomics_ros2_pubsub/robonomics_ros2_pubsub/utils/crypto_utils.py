@@ -23,11 +23,11 @@ def load_params() -> dict:
     return params_dict
 
 
-def create_datalog_instance(account: Account) -> [Datalog, str]:
+def create_launch_datalog_instance(account: Account) -> [Datalog, Launch, str]:
     """
     Initialize datalog object taking into account RWS
     :param account  Robonomics account with seed
-    :return:        Datalog object, subscription status
+    :return:        Datalog and Launch objects, subscription status
     """
     # Load params
     params_dict = load_params()
@@ -40,17 +40,21 @@ def create_datalog_instance(account: Account) -> [Datalog, str]:
     if rws_owner_address == '':
         rws_status = 'The address of the subscription owner is not specified, transactions will be performed as usual'
         datalog = Datalog(account)
+        launch = Launch(account)
     elif rws.get_days_left(addr=rws_owner_address) is False:
         rws_status = 'No subscription was found for the owner address, transactions will be performed as usual'
         datalog = Datalog(account)
+        launch = Launch(account)
     elif rws.is_in_sub(rws_owner_address, account_address) is False:
         rws_status = 'Account not added to the specified subscription, transactions will be performed as usual'
         datalog = Datalog(account)
+        launch = Launch(account)
     else:
         rws_status = 'Robonomics subscription found, transactions will be performed with the RWS module'
         datalog = Datalog(account, rws_sub_owner=rws_owner_address)
+        launch = Launch(account, rws_sub_owner=rws_owner_address)
 
-    return [datalog, rws_status]
+    return [datalog, launch, rws_status]
 
 
 def create_account() -> Account:
