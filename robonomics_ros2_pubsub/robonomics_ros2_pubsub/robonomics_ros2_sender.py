@@ -3,10 +3,10 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-from robonomicsinterface import Datalog, Launch
+from robonomicsinterface import Launch
 
 from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
-from robonomics_ros2_pubsub.utils.crypto_utils import create_account
+from robonomics_ros2_pubsub.utils.crypto_utils import create_account, create_datalog_instance
 
 
 class RobonomicsROS2Sender(Node):
@@ -21,8 +21,12 @@ class RobonomicsROS2Sender(Node):
 
         # Callback group for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
+
+        # Initialize datalog
+        [self.datalog, rws_status] = create_datalog_instance(self.account)
+        self.get_logger().info(rws_status)
+
         # Create service for sending datalog
-        self.datalog = Datalog(self.account)
         self.srv_send_datalog = self.create_service(
             RobonomicsROS2SendDatalog,
             'robonomics/send_datalog',
@@ -46,8 +50,11 @@ class RobonomicsROS2Sender(Node):
         :param response: result message
         :return: response
         """
-        self.datalog.record(request.datalog_content)
-        response.result = 'Sent msg to datalog: %s' % request.datalog_content
+        try:
+            self.datalog.record(request.datalog_content)
+            response.result = 'Sent msg to datalog: %s' % request.datalog_content
+        except Exception as e:
+            response.result = 'Datalog sending failed with exception: %s' % str(e)
         return response
 
     def send_launch_callback(self, request, response):

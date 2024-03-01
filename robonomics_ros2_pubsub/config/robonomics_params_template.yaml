@@ -1,10 +1,11 @@
 /robonomics_ros2_pubsub:
   ros__parameters:
     seed: ''
-    crypto_type: '' # 'ED25519' or 'SR25519'
-    recipient_address: '' # An address that can open an encrypted file
-    sender_address: ''    # An address from which the encrypted file can be opened by a robot
+    crypto_type: ''         # 'ED25519' or 'SR25519'
+    recipient_address: ''   # An address that can open an encrypted file
+    sender_address: ''      # An address from which the encrypted file can be opened by a robot
+    rws_owner_address: ''   # An address of Robonomics subscription owner, empty if there is no RWS
 
 /ipfs_handler_node:
   ros__parameters:
-    ipfs_files_path: false # Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path will be used
+    ipfs_files_path: false  # Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path will be used
