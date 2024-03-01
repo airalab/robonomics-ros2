@@ -144,7 +144,7 @@ https://wiki.robonomics.network/docs/create-account-in-dapp
     cp robonomics_ros2_pubsub/config/robonomics_params_template.yaml robonomics_ros2_pubsub/config/robonomics_params.yaml
     ```
    
-4. Insert the account seed phrase and the account type into new `robonomics_params.yaml` file:
+4. Insert the account seed phrase and the account type into new `robonomics_params.yaml` file. 
     ```yaml
     /**:
       ros__parameters:
@@ -154,17 +154,26 @@ https://wiki.robonomics.network/docs/create-account-in-dapp
    
    > **WARNING**: The seed phrase is sensitive information that allows anyone to use your account. Make sure you don't 
    > upload a config file with it to GitHub or anywhere else.
+
+5. If you have a Robonomics subscription that allows you to send transactions without fees, please insert the address 
+of the subscription owner. Don't forget that your account must be added to your subscription.
+
+    ```yaml
+    /**:
+      ros__parameters:
+        rws_owner_address: ''
+    ```
    
-   You may also want to change the directory where the files for IPFS will be stored. To do this, change the parameter
+6. You may also want to change the directory where the files for IPFS will be stored. To do this, change the parameter
    `ipfs_files_path`.
 
-5. Then you can test the repository with turtlesim package or make your own robot integration. Anyway, after that
+7. Then you can test the repository with turtlesim package or make your own robot integration. Anyway, after that
 you need to build the package. From `your_project_ws` directory run:
     ```shell
     colcon build
     ```
    
-6. Source the package to the environment (you will need it to do in every console instance):
+8. Source the package to the environment (you will need it to do in every console instance):
     ```shell
     source install/setup.bash
     ```
