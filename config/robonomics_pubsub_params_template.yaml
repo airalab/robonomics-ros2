@@ -1,0 +1,2 @@
+account_seed:   ''         #  your account seed
+crypto_type:    ''         #  'ED25519' or 'SR25519'

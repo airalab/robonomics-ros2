@@ -1,4 +1,0 @@
-IPFS-Toolkit>=0.5.19
-PyYAML>=6.0.1
-robonomics-interface>=1.6.1
-substrate-interface>=1.7.4
