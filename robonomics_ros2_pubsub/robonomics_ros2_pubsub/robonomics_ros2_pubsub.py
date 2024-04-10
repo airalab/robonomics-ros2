@@ -5,8 +5,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 
-from robonomicsinterface import Account
+from robonomicsinterface import Account, Datalog, Launch, RWS
 from substrateinterface import KeypairType
+from substrateinterface.utils.ss58 import is_valid_ss58_address
 
 
 class RobonomicsROS2PubSub(Node):
@@ -33,6 +34,7 @@ class RobonomicsROS2PubSub(Node):
         account_seed = pubsub_params_dict['account_seed']
         remote_node_url = pubsub_params_dict['remote_node_url']
         self.account_type = pubsub_params_dict['crypto_type']
+        rws_owner_address = pubsub_params_dict['rws_owner_address']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -60,6 +62,35 @@ class RobonomicsROS2PubSub(Node):
 
         account_address = account.get_address()
         self.get_logger().info('My address is %s' % account_address)
+
+        # Checking if subscription exists and actives for initialization of datalog and launch
+        robonomics_subscription = RWS(account)
+        if rws_owner_address == '':
+            self.get_logger().info('The address of the subscription owner is not specified, '
+                                   'transactions will be performed as usual')
+            rws_status = False
+        elif is_valid_ss58_address(rws_owner_address, valid_ss58_format=32) is not True:
+            self.get_logger().warn('Given subscription owner address is not correct, '
+                                   'transactions will be performed as usual')
+            rws_status = False
+        elif robonomics_subscription.get_days_left(addr=rws_owner_address) is False:
+            self.get_logger().warn('No subscription was found for the owner address, '
+                                   'transactions will be performed as usual')
+            rws_status = False
+        elif robonomics_subscription.is_in_sub(rws_owner_address, account_address) is False:
+            self.get_logger().warn('Account not added to the specified subscription, '
+                                   'transactions will be performed as usual')
+            rws_status = False
+        else:
+            self.get_logger().info('Robonomics subscription found, transactions will be performed with the RWS module')
+            rws_status = True
+
+        if rws_status is True:
+            datalog = Datalog(account, rws_sub_owner=rws_owner_address)
+            launch = Launch(account, rws_sub_owner=rws_owner_address)
+        else:
+            datalog = Datalog(account)
+            launch = Launch(account)
 
     def __enter__(self) -> Self:
         """
