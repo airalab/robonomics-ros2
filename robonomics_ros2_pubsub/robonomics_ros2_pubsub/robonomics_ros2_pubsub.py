@@ -31,7 +31,13 @@ class RobonomicsROS2PubSub(Node):
 
         # Load all params
         account_seed = pubsub_params_dict['account_seed']
+        remote_node_url = pubsub_params_dict['remote_node_url']
         self.account_type = pubsub_params_dict['crypto_type']
+
+        # Check if remote node url is not specified, use default
+        if remote_node_url == '':
+            remote_node_url = 'wss://kusama.rpc.robonomics.network'
+        self.get_logger().info("Connected to Robonomics via: %s" % remote_node_url)
 
         # Checking the type of account
         if self.account_type == 'ED25519':
@@ -41,11 +47,17 @@ class RobonomicsROS2PubSub(Node):
             crypto_type = KeypairType.SR25519
         else:
             crypto_type = -1
-            self.get_logger().error("A specified account type is not supported")
-            rclpy.shutdown()
 
         # Creating account and show its address
-        account = Account(seed=account_seed, crypto_type=crypto_type)
+        try:
+            account = Account(
+                seed=account_seed,
+                remote_ws=remote_node_url,
+                crypto_type=crypto_type)
+        except ValueError:
+            self.get_logger().error("A specified account type is not supported")
+            raise SystemExit
+
         account_address = account.get_address()
         self.get_logger().info('My address is %s' % account_address)
 
@@ -75,9 +87,10 @@ def main(args=None) -> None:
         try:
             executor.add_node(robonomics_ros2_pubsub)
             executor.spin()
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             robonomics_ros2_pubsub.get_logger().warn("Killing the Robonomics pubsub node...")
             executor.remove_node(robonomics_ros2_pubsub)
+            executor.shutdown()
 
 
 if __name__ == '__main__':

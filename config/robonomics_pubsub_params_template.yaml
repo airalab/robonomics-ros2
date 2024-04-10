@@ -1,2 +1,4 @@
-account_seed:   ''         #  your account seed
-crypto_type:    ''         #  'ED25519' or 'SR25519'
+account_seed:     ''          #   your account seed
+remote_node_url:  ''          #   node url, leave empty for default node address ("wss://kusama.rpc.robonomics.network"),
+                              #   for local node use "ws://127.0.0.1:9944"
+crypto_type:      ''          #  'ED25519' or 'SR25519'
