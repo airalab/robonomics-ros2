@@ -4,10 +4,13 @@ import yaml
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from robonomicsinterface import Account, Datalog, Launch, RWS
 from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
+
+from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog
 
 
 class RobonomicsROS2PubSub(Node):
@@ -86,11 +89,39 @@ class RobonomicsROS2PubSub(Node):
             rws_status = True
 
         if rws_status is True:
-            datalog = Datalog(account, rws_sub_owner=rws_owner_address)
-            launch = Launch(account, rws_sub_owner=rws_owner_address)
+            self.datalog = Datalog(account, rws_sub_owner=rws_owner_address)
+            self.launch = Launch(account, rws_sub_owner=rws_owner_address)
         else:
-            datalog = Datalog(account)
-            launch = Launch(account)
+            self.datalog = Datalog(account)
+            self.launch = Launch(account)
+
+        # Callback groups for allowing parallel running
+        sender_callback_group = MutuallyExclusiveCallbackGroup()
+
+        # Create service for sending datalog
+        self.srv_send_datalog = self.create_service(
+            RobonomicsROS2SendDatalog,
+            'robonomics/send_datalog',
+            self.send_datalog_callback,
+            callback_group=sender_callback_group,
+        )
+
+    def send_datalog_callback(self,
+                              request: RobonomicsROS2SendDatalog.Request,
+                              response: RobonomicsROS2SendDatalog.Response
+                              ) -> RobonomicsROS2SendDatalog.Response:
+        """
+        Send datalog with specified string
+        :param request: datalog string
+        :param response: hash of the datalog transaction
+        :return: response
+        """
+        try:
+            response.datalog_hash = self.datalog.record(request.datalog_content)
+        except Exception as e:
+            response.datalog_hash = ''
+            self.get_logger().error('Datalog sending failed with exception: %s' % str(e))
+        return response
 
     def __enter__(self) -> Self:
         """
