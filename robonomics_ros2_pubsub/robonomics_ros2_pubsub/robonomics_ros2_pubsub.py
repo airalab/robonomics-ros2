@@ -17,6 +17,7 @@ from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
 
 from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog
+from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, encrypt_file
 
 
 class RobonomicsROS2PubSub(Node):
@@ -45,6 +46,7 @@ class RobonomicsROS2PubSub(Node):
         self.account_type = pubsub_params_dict['crypto_type']
         rws_owner_address = pubsub_params_dict['rws_owner_address']
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
+        self.crypt_recipient_address = pubsub_params_dict['crypt_recipient_address']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -62,7 +64,7 @@ class RobonomicsROS2PubSub(Node):
 
         # Creating account and show its address
         try:
-            account = Account(
+            self.account = Account(
                 seed=account_seed,
                 remote_ws=remote_node_url,
                 crypto_type=crypto_type)
@@ -70,11 +72,11 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().error("A specified account type is not supported")
             raise SystemExit
 
-        account_address = account.get_address()
+        account_address = self.account.get_address()
         self.get_logger().info('My address is %s' % account_address)
 
         # Checking if subscription exists and actives for initialization of datalog and launch
-        robonomics_subscription = RWS(account)
+        robonomics_subscription = RWS(self.account)
         if rws_owner_address == '':
             self.get_logger().info('The address of the subscription owner is not specified, '
                                    'transactions will be performed as usual')
@@ -96,11 +98,11 @@ class RobonomicsROS2PubSub(Node):
             rws_status = True
 
         if rws_status is True:
-            self.datalog = Datalog(account, rws_sub_owner=rws_owner_address)
-            self.launch = Launch(account, rws_sub_owner=rws_owner_address)
+            self.datalog = Datalog(self.account, rws_sub_owner=rws_owner_address)
+            self.launch = Launch(self.account, rws_sub_owner=rws_owner_address)
         else:
-            self.datalog = Datalog(account)
-            self.launch = Launch(account)
+            self.datalog = Datalog(self.account)
+            self.launch = Launch(self.account)
 
         # Checking IPFS daemon
         try:
@@ -118,6 +120,12 @@ class RobonomicsROS2PubSub(Node):
             self.ipfs_dir_path = os.path.abspath(self.ipfs_dir_path)
         self.get_logger().info("My IPFS files directory is: " + self.ipfs_dir_path)
 
+        # Checking addresses for encrypt / decrypt file
+        if (self.crypt_recipient_address != '' and
+                is_valid_ss58_address(self.crypt_recipient_address, valid_ss58_format=32) is not True):
+            self.get_logger().warn('Given recipient address for file encryption is not correct')
+            self.crypt_recipient_address = ''
+
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
 
@@ -134,13 +142,25 @@ class RobonomicsROS2PubSub(Node):
                               response: RobonomicsROS2SendDatalog.Response
                               ) -> RobonomicsROS2SendDatalog.Response:
         """
-        Send datalog with specified string
-        :param request: datalog string
+        Send datalog with specified content
+        :param request: datalog content (name of file or string), IPFS file status and encrypt status
         :param response: hash of the datalog transaction
         :return: response
         """
         try:
-            response.datalog_hash = self.datalog.record(request.datalog_content)
+            if request.ipfs_file_status is True:
+                file_path = os.path.join(self.ipfs_dir_path, request.datalog_content)
+                if request.encrypt_status is True and self.crypt_recipient_address != '':
+                    self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
+                    file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
+
+                to_datalog = ipfs_upload(file_path)
+
+                self.get_logger().info('Sending datalog with IPFS CID: %s' % to_datalog)
+            else:
+                to_datalog = request.datalog_content
+                self.get_logger().info('Sending datalog with content: %s' % to_datalog)
+            response.datalog_hash = self.datalog.record(to_datalog)
         except Exception as e:
             response.datalog_hash = ''
             self.get_logger().error('Datalog sending failed with exception: %s' % str(e))

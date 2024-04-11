@@ -1,3 +1,5 @@
-string datalog_content
+string  datalog_content
+bool    ipfs_file_status    True
+bool    encrypt_status      False
 ---
-string datalog_hash
+string  datalog_hash
