@@ -1,10 +1,16 @@
 from typing_extensions import Self, Any
 import yaml
+import os
+
+import ipfshttpclient2
+import ipfs_api
 
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
+from ament_index_python.packages import get_package_share_directory
 
 from robonomicsinterface import Account, Datalog, Launch, RWS
 from substrateinterface import KeypairType
@@ -38,6 +44,7 @@ class RobonomicsROS2PubSub(Node):
         remote_node_url = pubsub_params_dict['remote_node_url']
         self.account_type = pubsub_params_dict['crypto_type']
         rws_owner_address = pubsub_params_dict['rws_owner_address']
+        self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -94,6 +101,22 @@ class RobonomicsROS2PubSub(Node):
         else:
             self.datalog = Datalog(account)
             self.launch = Launch(account)
+
+        # Checking IPFS daemon
+        try:
+            with ipfshttpclient2.connect():
+                self.get_logger().info('IPFS daemon is found')
+        except ipfshttpclient2.exceptions.ConnectionError:
+            self.get_logger().error('IPFS daemon is not found, check if it is working')
+            raise SystemExit
+        self.get_logger().info("My IPFS ID is: " + ipfs_api.my_id())
+
+        # Checking IPFS directory, if not, use default
+        if self.ipfs_dir_path == '' or os.path.isdir(self.ipfs_dir_path) is False:
+            self.ipfs_dir_path = os.path.join(get_package_share_directory('robonomics_ros2_pubsub'), 'ipfs_files')
+        else:
+            self.ipfs_dir_path = os.path.abspath(self.ipfs_dir_path)
+        self.get_logger().info("My IPFS files directory is: " + self.ipfs_dir_path)
 
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()

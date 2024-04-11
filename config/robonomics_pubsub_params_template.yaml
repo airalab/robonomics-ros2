@@ -3,3 +3,5 @@ remote_node_url:    ''          #   node url, leave empty for default node addre
                                 #   for local node use "ws://127.0.0.1:9944"
 crypto_type:        ''          #  'ED25519' or 'SR25519'
 rws_owner_address:  ''          #   An address of Robonomics subscription owner, empty if there is no subscription
+ipfs_dir_path:      ''          #   Full path of your directory, e.g. '/home/user/ipfs_files/',
+                                #   otherwise default path will be used
