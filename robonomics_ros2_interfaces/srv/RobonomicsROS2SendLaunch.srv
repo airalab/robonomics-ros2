@@ -1,4 +1,5 @@
-string address
-string param
+string  param_file_name             # Name of file that contains parameter
+string  target_address              # Address to be triggered with launch
+bool    encrypt_status      False   # Status if IFS file should be encrypt, default is False
 ---
-string result
+string  launch_hash                 # Hash of the launch transaction

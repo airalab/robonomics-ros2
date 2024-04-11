@@ -16,7 +16,7 @@ from robonomicsinterface import Account, Datalog, Launch, RWS
 from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
 
-from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog
+from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
 from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, encrypt_file
 
 
@@ -137,6 +137,14 @@ class RobonomicsROS2PubSub(Node):
             callback_group=sender_callback_group,
         )
 
+        # Create service for sending launch
+        self.srv_send_launch = self.create_service(
+            RobonomicsROS2SendLaunch,
+            'robonomics/send_launch',
+            self.send_launch_callback,
+            callback_group=sender_callback_group,
+        )
+
     def send_datalog_callback(self,
                               request: RobonomicsROS2SendDatalog.Request,
                               response: RobonomicsROS2SendDatalog.Response
@@ -149,21 +157,50 @@ class RobonomicsROS2PubSub(Node):
         """
         try:
             if request.ipfs_file_status is True:
-                file_path = os.path.join(self.ipfs_dir_path, request.datalog_content)
+                file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_content))
                 if request.encrypt_status is True and self.crypt_recipient_address != '':
                     self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
                     file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
 
-                to_datalog = ipfs_upload(file_path)
+                datalog_cid = ipfs_upload(file_path)
 
-                self.get_logger().info('Sending datalog with IPFS CID: %s' % to_datalog)
+                self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
+                response.datalog_hash = self.datalog.record(datalog_cid)
             else:
-                to_datalog = request.datalog_content
-                self.get_logger().info('Sending datalog with content: %s' % to_datalog)
-            response.datalog_hash = self.datalog.record(to_datalog)
+                self.get_logger().info('Sending datalog with content: %s' % request.datalog_content)
+                response.datalog_hash = self.datalog.record(request.datalog_content)
         except Exception as e:
             response.datalog_hash = ''
             self.get_logger().error('Datalog sending failed with exception: %s' % str(e))
+        return response
+
+    def send_launch_callback(self,
+                             request: RobonomicsROS2SendLaunch.Request,
+                             response: RobonomicsROS2SendLaunch.Response
+                             ) -> RobonomicsROS2SendLaunch.Response:
+        """
+        Send launch to specified address with specified param
+        :param request: file name with param content, target address and encrypt status
+        :param response: hash of the datalog transaction
+        :return: response
+        """
+        try:
+            if is_valid_ss58_address(request.target_address, valid_ss58_format=32) is True:
+                file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
+                if request.encrypt_status is True and self.crypt_recipient_address != '':
+                    self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
+                    file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
+
+                param_cid = ipfs_upload(file_path)
+
+                self.get_logger().info('Sending launch to %s with parameter: %s' % (request.target_address, param_cid))
+                response.launch_hash = self.launch.launch(request.target_address, param_cid)
+            else:
+                raise ValueError("Invalid address")
+
+        except Exception as e:
+            response.launch_hash = ''
+            self.get_logger().error('Launch sending failed with exception: %s' % str(e))
         return response
 
     def __enter__(self) -> Self:
