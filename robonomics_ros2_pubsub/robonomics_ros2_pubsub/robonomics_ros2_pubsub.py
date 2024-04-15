@@ -16,8 +16,8 @@ from robonomicsinterface import Account, Datalog, Launch, RWS
 from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
 
-from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
-from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, encrypt_file
+from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch, RobonomicsROS2ReceiveDatalog
+from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file
 
 
 class RobonomicsROS2PubSub(Node):
@@ -145,6 +145,13 @@ class RobonomicsROS2PubSub(Node):
             callback_group=sender_callback_group,
         )
 
+        # Create service for receiving datalog from specified address
+        self.srv_receive_datalog = self.create_service(
+            RobonomicsROS2ReceiveDatalog,
+            'robonomics/receive_datalog',
+            self.receive_datalog_callback,
+        )
+
     def send_datalog_callback(self,
                               request: RobonomicsROS2SendDatalog.Request,
                               response: RobonomicsROS2SendDatalog.Response
@@ -169,9 +176,11 @@ class RobonomicsROS2PubSub(Node):
             else:
                 self.get_logger().info('Sending datalog with content: %s' % request.datalog_content)
                 response.datalog_hash = self.datalog.record(request.datalog_content)
+
         except Exception as e:
             response.datalog_hash = ''
             self.get_logger().error('Datalog sending failed with exception: %s' % str(e))
+
         return response
 
     def send_launch_callback(self,
@@ -196,11 +205,61 @@ class RobonomicsROS2PubSub(Node):
                 self.get_logger().info('Sending launch to %s with parameter: %s' % (request.target_address, param_cid))
                 response.launch_hash = self.launch.launch(request.target_address, param_cid)
             else:
-                raise ValueError("Invalid address")
+                raise ValueError("Invalid target address")
 
         except Exception as e:
             response.launch_hash = ''
             self.get_logger().error('Launch sending failed with exception: %s' % str(e))
+
+        return response
+
+    def receive_datalog_callback(self,
+                                 request: RobonomicsROS2ReceiveDatalog.Request,
+                                 response: RobonomicsROS2ReceiveDatalog.Response,
+                                 ) -> RobonomicsROS2ReceiveDatalog.Response:
+        """
+        Get datalog from specified address
+        :param request: address, decrypt status
+        :param response: timestamp and datalog content
+        :return: response
+        """
+        try:
+            if is_valid_ss58_address(request.sender_address, valid_ss58_format=32) is True:
+                [timestamp, datalog_content] = self.datalog.get_item(request.sender_address)
+                datalog_content = str(datalog_content)
+
+                if datalog_content.startswith('Qm'):
+                    self.get_logger().info(
+                        'Receiving datalog from %s with IPFS hash: %s' % (request.sender_address, datalog_content)
+                    )
+
+                    if request.datalog_file_name == '':
+                        file_path = str(os.path.join(self.ipfs_dir_path, datalog_content))
+                    else:
+                        file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
+
+                    ipfs_download(cid=datalog_content, file_path=file_path)
+
+                    response.datalog_content = file_path
+
+                else:
+                    self.get_logger().info(
+                        'Receiving datalog from %s with string: %s' % (request.sender_address, datalog_content)
+                    )
+                    response.datalog_content = datalog_content
+
+                response.timestamp.sec = timestamp // 1000
+                response.timestamp.nanosec = (timestamp % 1000) * 10**6
+
+            else:
+                raise ValueError("Invalid datalog sender address")
+
+        except Exception as e:
+            response.datalog_content = ''
+            response.timestamp.sec = 0
+            response.timestamp.nanosec = 0
+            self.get_logger().error('Datalog receiving failed with exception: %s' % str(e))
+
         return response
 
     def __enter__(self) -> Self:

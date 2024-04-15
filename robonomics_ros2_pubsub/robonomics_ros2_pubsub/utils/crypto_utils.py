@@ -15,6 +15,16 @@ def ipfs_upload(file_path: str) -> str:
     return cid
 
 
+def ipfs_download(cid: str, file_path: str) -> None:
+    """
+    Function for download files from IPFS
+    :param cid: File CID
+    :param file_path: Full path for saving file
+    :return: None
+    """
+    ipfs_api.download(cid, file_path)
+
+
 def encrypt_file(file_path: str, encrypting_account: Account, recipient_address: str) -> str:
     """
     Encrypt file with robot private key and recipient public key
