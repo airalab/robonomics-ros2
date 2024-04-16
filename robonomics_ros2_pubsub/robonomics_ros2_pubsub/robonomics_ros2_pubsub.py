@@ -12,12 +12,17 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from ament_index_python.packages import get_package_share_directory
 
-from robonomicsinterface import Account, Datalog, Launch, RWS
+from robonomicsinterface import Account, Datalog, Launch, RWS, Subscriber, SubEvent
+from robonomicsinterface.utils import ipfs_32_bytes_to_qm_hash
 from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
 
-from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch, RobonomicsROS2ReceiveDatalog
-from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file
+from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
+                                            RobonomicsROS2ReceiveDatalog)
+from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
+from std_msgs.msg import String
+
+from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file
 
 
 class RobonomicsROS2PubSub(Node):
@@ -47,6 +52,7 @@ class RobonomicsROS2PubSub(Node):
         rws_owner_address = pubsub_params_dict['rws_owner_address']
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
         self.crypt_recipient_address = pubsub_params_dict['crypt_recipient_address']
+        self.crypt_sender_address = pubsub_params_dict['crypt_sender_address']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -125,6 +131,10 @@ class RobonomicsROS2PubSub(Node):
                 is_valid_ss58_address(self.crypt_recipient_address, valid_ss58_format=32) is not True):
             self.get_logger().warn('Given recipient address for file encryption is not correct')
             self.crypt_recipient_address = ''
+        if (self.crypt_sender_address != '' and
+                is_valid_ss58_address(self.crypt_sender_address, valid_ss58_format=32) is not True):
+            self.get_logger().warn('Given sender address for file decryption is not correct')
+            self.crypt_sender_address = ''
 
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
@@ -150,6 +160,21 @@ class RobonomicsROS2PubSub(Node):
             RobonomicsROS2ReceiveDatalog,
             'robonomics/receive_datalog',
             self.receive_datalog_callback,
+        )
+
+        # Create subscription of launches for Robonomics node account itself
+        self.robonomics_launch_subscriber = Subscriber(
+            self.account,
+            SubEvent.NewLaunch,
+            addr=account_address,
+            subscription_handler=self.receive_launch_callback,
+        )
+
+        # Publisher of file name of launch parameters
+        self.launch_file_publisher = self.create_publisher(
+            RobonomicsROS2ReceivedLaunch,
+            'robonomics/launch_file_name',
+            10
         )
 
     def send_datalog_callback(self,
@@ -195,7 +220,7 @@ class RobonomicsROS2PubSub(Node):
                              ) -> RobonomicsROS2SendLaunch.Response:
         """
         Send launch to specified address with specified param
-        :param request: file name with param content, target address and encrypt status
+        :param request: file name with param content, target address
         :param response: hash of the datalog transaction
         :return: response
         """
@@ -205,7 +230,7 @@ class RobonomicsROS2PubSub(Node):
                 file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
 
                 # Check if encryption is needed and recipient address is valid
-                if request.encrypt_status is True and self.crypt_recipient_address != '':
+                if self.crypt_recipient_address != '':
                     self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
                     file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
 
@@ -254,6 +279,12 @@ class RobonomicsROS2PubSub(Node):
                     # Download from IPFS
                     ipfs_download(cid=datalog_content, file_path=file_path)
 
+                    # Check if decryption is needed and sender address is valid
+                    if request.decrypt_status is True and self.crypt_sender_address != '':
+                        self.get_logger().info(
+                            'Decrypting file from specified address: %s' % self.crypt_sender_address)
+                        file_path = decrypt_file(file_path, self.account, self.crypt_sender_address)
+
                     response.datalog_content = file_path
 
                 else:
@@ -278,6 +309,41 @@ class RobonomicsROS2PubSub(Node):
 
         return response
 
+    def receive_launch_callback(self, launch_raw_data: tuple[str, str, str]) -> None:
+        """
+        Event handler when launch appears, which will download IPFS file from parameter and send its name to the topic.
+        :param launch_raw_data: tuple with addresses and launch parameter
+        :return: None
+        """
+        launch_sender_address = launch_raw_data[0]
+        launch_param = launch_raw_data[2]
+
+        try:
+            # Only IPFS hashes are permitted to use in launch parameters
+            ipfs_hash = ipfs_32_bytes_to_qm_hash(launch_param)
+            self.get_logger().info("Getting launch from %s with param: %s" % (launch_sender_address,ipfs_hash))
+
+            file_path = str(os.path.join(self.ipfs_dir_path, ipfs_hash))
+
+            # Download from IPFS
+            ipfs_download(cid=ipfs_hash, file_path=file_path)
+
+            # Check if decryption is needed
+            if self.crypt_sender_address != '':
+                self.get_logger().info(
+                    'Decrypting launch parameter file from specified address: %s' % self.crypt_sender_address)
+                file_path = decrypt_file(file_path, self.account, self.crypt_sender_address)
+
+            # Prepare ROS msg and send it to topic
+            received_launch_msg = RobonomicsROS2ReceivedLaunch()
+            received_launch_msg.param_file_name = str(os.path.basename(file_path))
+            received_launch_msg.launch_sender_address = str(launch_sender_address)
+
+            self.launch_file_publisher.publish(received_launch_msg)
+
+        except Exception as e:
+            self.get_logger().error('Launch receiving failed with exception: %s' % str(e))
+
     def __enter__(self) -> Self:
         """
         Enter the object runtime context
@@ -293,6 +359,7 @@ class RobonomicsROS2PubSub(Node):
         :param exc_tb: exception traceback
         :return: None
         """
+        self.robonomics_launch_subscriber.cancel()
 
 
 def main(args=None) -> None:

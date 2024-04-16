@@ -4,3 +4,4 @@ crypto_type:              ''  #  'ED25519' or 'SR25519'
 rws_owner_address:        ''  #   An address of Robonomics subscription owner, empty if there is no subscription
 ipfs_dir_path:            ''  #   Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path will be used
 crypt_recipient_address:  ''  #   An address that can open an encrypted file, leave empty to not encrypt IPFS files
+crypt_sender_address:     ''  #   An address that sends encrypted file that can be decrypted by a robot, leave empty if IPFS file is not encrypt

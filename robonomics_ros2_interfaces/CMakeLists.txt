@@ -14,6 +14,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/RobonomicsROS2SendDatalog.srv"
   "srv/RobonomicsROS2ReceiveDatalog.srv"
   "srv/RobonomicsROS2SendLaunch.srv"
+  "msg/RobonomicsROS2ReceivedLaunch.msg"
   DEPENDENCIES builtin_interfaces
  )
 ament_export_dependencies(rosidl_default_runtime)
