@@ -163,17 +163,23 @@ class RobonomicsROS2PubSub(Node):
         :return: response
         """
         try:
+            # Check if datalog is IPFS file
             if request.ipfs_file_status is True:
                 file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_content))
+
+                # Check if encryption is needed
                 if request.encrypt_status is True and self.crypt_recipient_address != '':
                     self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
                     file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
 
+                # Upload file to IPFS
                 datalog_cid = ipfs_upload(file_path)
 
                 self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
                 response.datalog_hash = self.datalog.record(datalog_cid)
+
             else:
+                # Else if datalog is just string
                 self.get_logger().info('Sending datalog with content: %s' % request.datalog_content)
                 response.datalog_hash = self.datalog.record(request.datalog_content)
 
@@ -194,12 +200,16 @@ class RobonomicsROS2PubSub(Node):
         :return: response
         """
         try:
+            # Check if target address is valid
             if is_valid_ss58_address(request.target_address, valid_ss58_format=32) is True:
                 file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
+
+                # Check if encryption is needed and recipient address is valid
                 if request.encrypt_status is True and self.crypt_recipient_address != '':
                     self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
                     file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
 
+                # Upload file to IPFS
                 param_cid = ipfs_upload(file_path)
 
                 self.get_logger().info('Sending launch to %s with parameter: %s' % (request.target_address, param_cid))
@@ -218,36 +228,42 @@ class RobonomicsROS2PubSub(Node):
                                  response: RobonomicsROS2ReceiveDatalog.Response,
                                  ) -> RobonomicsROS2ReceiveDatalog.Response:
         """
-        Get datalog from specified address
+        Get last datalog from specified address
         :param request: address, decrypt status
         :param response: timestamp and datalog content
         :return: response
         """
         try:
+            # Check if address of datalog sender is valid
             if is_valid_ss58_address(request.sender_address, valid_ss58_format=32) is True:
                 [timestamp, datalog_content] = self.datalog.get_item(request.sender_address)
                 datalog_content = str(datalog_content)
 
+                # Check if datalog content is IPFS hash
                 if datalog_content.startswith('Qm'):
                     self.get_logger().info(
                         'Receiving datalog from %s with IPFS hash: %s' % (request.sender_address, datalog_content)
                     )
 
+                    # Check if datalog file name is set
                     if request.datalog_file_name == '':
                         file_path = str(os.path.join(self.ipfs_dir_path, datalog_content))
                     else:
                         file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
 
+                    # Download from IPFS
                     ipfs_download(cid=datalog_content, file_path=file_path)
 
                     response.datalog_content = file_path
 
                 else:
+                    # Else if datalog content is just string
                     self.get_logger().info(
                         'Receiving datalog from %s with string: %s' % (request.sender_address, datalog_content)
                     )
                     response.datalog_content = datalog_content
 
+                # Get timestamp with nanosec
                 response.timestamp.sec = timestamp // 1000
                 response.timestamp.nanosec = (timestamp % 1000) * 10**6
 
