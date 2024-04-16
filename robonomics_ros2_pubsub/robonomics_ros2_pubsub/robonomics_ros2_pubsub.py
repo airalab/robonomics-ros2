@@ -20,7 +20,6 @@ from substrateinterface.utils.ss58 import is_valid_ss58_address
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
                                             RobonomicsROS2ReceiveDatalog)
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
-from std_msgs.msg import String
 
 from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file
 
