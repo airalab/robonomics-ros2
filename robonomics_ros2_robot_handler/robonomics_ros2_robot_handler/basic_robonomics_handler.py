@@ -6,6 +6,8 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
                                             RobonomicsROS2ReceiveDatalog)
 
+from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
+
 
 class BasicRobonomicsHandler(Node):
 
@@ -16,6 +18,9 @@ class BasicRobonomicsHandler(Node):
         super().__init__('robonomics_ros2_robot_handler')
 
         sender_callback_group = MutuallyExclusiveCallbackGroup()
+
+        # File name for launch parameter
+        self.param_file_name = ''
 
         # Create client for sending datalog
         self.send_datalog_client = self.create_client(
@@ -39,6 +44,16 @@ class BasicRobonomicsHandler(Node):
         self.receive_datalog_client = self.create_client(
             RobonomicsROS2ReceiveDatalog,
             'robonomics/receive_datalog',
+        )
+        while not self.receive_datalog_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Receive datalog service not available, waiting again...')
+
+        # Create subscriber for launch
+        self.launch_file_subscriber = self.create_subscription(
+            RobonomicsROS2ReceivedLaunch,
+            'robonomics/launch_file_name',
+            self.launch_file_subscriber_callback,
+            10,
         )
 
     def send_datalog_request(self,
@@ -117,6 +132,16 @@ class BasicRobonomicsHandler(Node):
         datalog_content = str(future.result().datalog_content)
 
         return [timestamp, datalog_content]
+
+    def launch_file_subscriber_callback(self, msg: RobonomicsROS2ReceivedLaunch) -> None:
+        """
+
+        :param msg: launch sender address and file name with param
+        :return: None
+        """
+        launch_sender_address = msg.launch_sender_address
+        self.get_logger().info('Got launch from: %s' % launch_sender_address)
+        self.param_file_name = msg.param_file_name
 
     def __enter__(self) -> Self:
         """
