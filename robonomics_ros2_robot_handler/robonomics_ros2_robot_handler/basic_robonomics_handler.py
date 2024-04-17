@@ -3,7 +3,8 @@ from typing_extensions import Self, Any
 from rclpy.node import Node
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-from robonomics_ros2_interfaces.srv import RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch
+from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
+                                            RobonomicsROS2ReceiveDatalog)
 
 
 class BasicRobonomicsHandler(Node):
@@ -25,6 +26,7 @@ class BasicRobonomicsHandler(Node):
         while not self.send_datalog_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Send datalog service not available, waiting again...')
 
+        # Create client for sending launch
         self.send_launch_client = self.create_client(
             RobonomicsROS2SendLaunch,
             'robonomics/send_launch',
@@ -32,6 +34,12 @@ class BasicRobonomicsHandler(Node):
         )
         while not self.send_launch_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Send launch service not available, waiting again...')
+
+        # Crete client for receiving datalog
+        self.receive_datalog_client = self.create_client(
+            RobonomicsROS2ReceiveDatalog,
+            'robonomics/receive_datalog',
+        )
 
     def send_datalog_request(self,
                              datalog_content: str,
@@ -81,6 +89,34 @@ class BasicRobonomicsHandler(Node):
 
         launch_hash = str(future.result().launch_hash)
         return launch_hash
+
+    def receive_datalog_request(self,
+                                sender_address: str,
+                                datalog_file_name: str = '',
+                                decrypt_status: bool = False,
+                                ) -> [float, str]:
+        """
+        Request function to get last datalog from address
+        :param sender_address: Robonomics address from which is needed to receive the datalog
+        :param datalog_file_name: name for IPFS file, default will be IPFS hash
+        :param decrypt_status: status if IPFS file should be decrypted, default is False
+        :return: timestamp of datalog in sec and string or file name, downloaded from IPFS
+        """
+
+        # Preparing a request
+        request = RobonomicsROS2ReceiveDatalog.Request()
+        request.sender_address = sender_address
+        request.datalog_file_name = datalog_file_name
+        request.decrypt_status = decrypt_status
+
+        # Making a request and wait for its execution
+        future = self.receive_datalog_client.call_async(request)
+        self.executor.spin_until_future_complete(future)
+
+        timestamp = float(future.result().timestamp.sec) + float(future.result().timestamp.nanosec) * 10**-9
+        datalog_content = str(future.result().datalog_content)
+
+        return [timestamp, datalog_content]
 
     def __enter__(self) -> Self:
         """
