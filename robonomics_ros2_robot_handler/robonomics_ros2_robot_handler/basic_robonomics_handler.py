@@ -12,7 +12,7 @@ class BasicRobonomicsHandler(Node):
         """
         Class with basic function for handling Robonomics ROS2 pubsub
         """
-        super().__init__('robonomics_robot_handler')
+        super().__init__('robonomics_ros2_robot_handler')
 
         sender_callback_group = MutuallyExclusiveCallbackGroup()
 
@@ -37,17 +37,18 @@ class BasicRobonomicsHandler(Node):
         :param encrypt_status: status if IPFS file should be encrypted, default is False
         :return: hash of the datalog transaction
         """
+
+        # Preparing a request
         request = RobonomicsROS2SendDatalog.Request()
         request.datalog_content = datalog_content
         request.ipfs_file_status = ipfs_file_status
         request.encrypt_status = encrypt_status
 
+        # Making a request and wait for its execution
         future = self.send_datalog_client.call_async(request)
-
         self.executor.spin_until_future_complete(future)
 
         datalog_hash = str(future.result().datalog_hash)
-
         return datalog_hash
 
     def __enter__(self) -> Self:

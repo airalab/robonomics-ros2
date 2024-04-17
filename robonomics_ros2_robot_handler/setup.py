@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'robonomics_robot_handler'
+package_name = 'robonomics_ros2_robot_handler'
 
 setup(
     name=package_name,
