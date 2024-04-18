@@ -9,6 +9,8 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -36,7 +38,12 @@ class RobonomicsROS2PubSub(Node):
         self.declare_parameters(
             namespace='',
             parameters=[
-                ('pubsub_params_path', rclpy.Parameter.Type.STRING),
+                ('pubsub_params_path',
+                 rclpy.Parameter.Type.STRING,
+                 ParameterDescriptor(description='Path to config file with parameters')),
+                ('ipfs_dir_path',
+                 rclpy.Parameter.Type.STRING,
+                 ParameterDescriptor(description='Path to directory with IPFS files'))
             ]
         )
         # Path to YAML-file with parameters
@@ -52,6 +59,13 @@ class RobonomicsROS2PubSub(Node):
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
         self.crypt_recipient_address = pubsub_params_dict['crypt_recipient_address']
         self.crypt_sender_address = pubsub_params_dict['crypt_sender_address']
+
+        # Set IPFS path parameter
+        ipfs_dir_path_param = Parameter(
+            'ipfs_dir_path',
+            rclpy.Parameter.Type.STRING,
+            self.ipfs_dir_path)
+        self.set_parameters([ipfs_dir_path_param])
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
