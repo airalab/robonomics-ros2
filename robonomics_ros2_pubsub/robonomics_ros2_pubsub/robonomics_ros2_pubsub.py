@@ -60,13 +60,6 @@ class RobonomicsROS2PubSub(Node):
         self.crypt_recipient_address = pubsub_params_dict['crypt_recipient_address']
         self.crypt_sender_address = pubsub_params_dict['crypt_sender_address']
 
-        # Set IPFS path parameter
-        ipfs_dir_path_param = Parameter(
-            'ipfs_dir_path',
-            rclpy.Parameter.Type.STRING,
-            self.ipfs_dir_path)
-        self.set_parameters([ipfs_dir_path_param])
-
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
             remote_node_url = 'wss://kusama.rpc.robonomics.network'
@@ -138,6 +131,13 @@ class RobonomicsROS2PubSub(Node):
         else:
             self.ipfs_dir_path = os.path.abspath(self.ipfs_dir_path)
         self.get_logger().info("My IPFS files directory is: " + self.ipfs_dir_path)
+
+        # Set IPFS path parameter
+        ipfs_dir_path_param = Parameter(
+            'ipfs_dir_path',
+            rclpy.Parameter.Type.STRING,
+            self.ipfs_dir_path)
+        self.set_parameters([ipfs_dir_path_param])
 
         # Checking addresses for encrypt / decrypt file
         if (self.crypt_recipient_address != '' and
@@ -334,7 +334,7 @@ class RobonomicsROS2PubSub(Node):
         try:
             # Only IPFS hashes are permitted to use in launch parameters
             ipfs_hash = ipfs_32_bytes_to_qm_hash(launch_param)
-            self.get_logger().info("Getting launch from %s with param: %s" % (launch_sender_address,ipfs_hash))
+            self.get_logger().info("Getting launch from %s with param: %s" % (launch_sender_address, ipfs_hash))
 
             file_path = str(os.path.join(self.ipfs_dir_path, ipfs_hash))
 

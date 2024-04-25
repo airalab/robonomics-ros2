@@ -1,7 +1,9 @@
 from typing_extensions import Self, Any
 
+import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rcl_interfaces.srv import GetParameters
 
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
                                             RobonomicsROS2ReceiveDatalog)
@@ -15,12 +17,30 @@ class BasicRobonomicsHandler(Node):
         """
         Class with basic function for handling Robonomics ROS2 pubsub
         """
-        super().__init__('robonomics_ros2_robot_handler')
+        super().__init__(
+            node_name='robonomics_ros2_robot_handler',
+        )
 
         sender_callback_group = MutuallyExclusiveCallbackGroup()
 
         # File name for launch parameter
         self.param_file_name = ''
+
+        # Service for getting IPFS path parameter
+        self.get_ipfs_path_parameter_client = self.create_client(
+            GetParameters,
+            'robonomics_ros2_pubsub/get_parameters'
+        )
+        while not self.get_ipfs_path_parameter_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Pubsub parameter service not available, waiting again...')
+
+        # Make request to get IPFS path class variable
+        request = GetParameters.Request()
+        request.names = ["ipfs_dir_path"]
+        future = self.get_ipfs_path_parameter_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
+        # has not yet created an executor
+        self.ipfs_dir_path = future.result().values[0].string_value
 
         # Create client for sending datalog
         self.send_datalog_client = self.create_client(
@@ -128,7 +148,7 @@ class BasicRobonomicsHandler(Node):
         future = self.receive_datalog_client.call_async(request)
         self.executor.spin_until_future_complete(future)
 
-        timestamp = float(future.result().timestamp.sec) + float(future.result().timestamp.nanosec) * 10**-9
+        timestamp = float(future.result().timestamp.sec) + float(future.result().timestamp.nanosec) * 10 ** -9
         datalog_content = str(future.result().datalog_content)
 
         return [timestamp, datalog_content]
