@@ -1,0 +1,20 @@
+# Your account seed
+account_seed:             ''
+
+# Node url, leave empty for default node address ("wss://kusama.rpc.robonomics.network"), for local node use "ws://127.0.0.1:9944"
+remote_node_url:          ''
+
+# Type of your account, 'ED25519' or 'SR25519'
+crypto_type:              ''
+
+# An address of Robonomics subscription owner, empty if there is no subscription
+rws_owner_address:        ''
+
+# Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path will be used
+ipfs_dir_path:            ''
+
+# An address that can open an encrypted file, leave empty to not encrypt IPFS files
+crypt_recipient_address:  ''
+
+# An address that sends encrypted file that can be decrypted by a robot, leave empty if IPFS file is not encrypt
+crypt_sender_address:     ''

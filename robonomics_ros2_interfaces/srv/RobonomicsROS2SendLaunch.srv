@@ -1,4 +1,4 @@
-string address
-string param
+string  param_file_name             # Name of file that contains parameter
+string  target_address              # Address to be triggered with launch
 ---
-string result
+string  launch_hash                 # Hash of the launch transaction

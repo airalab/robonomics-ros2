@@ -8,13 +8,14 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/RobonomicsROS2SendDatalog.srv"
-  "srv/RobonomicsROS2ReceiveLastDatalog.srv"
+  "srv/RobonomicsROS2ReceiveDatalog.srv"
   "srv/RobonomicsROS2SendLaunch.srv"
-  "srv/UploadToIPFS.srv"
-  "srv/DownloadFromIPFS.srv"
+  "msg/RobonomicsROS2ReceivedLaunch.msg"
+  DEPENDENCIES builtin_interfaces
  )
 ament_export_dependencies(rosidl_default_runtime)
 

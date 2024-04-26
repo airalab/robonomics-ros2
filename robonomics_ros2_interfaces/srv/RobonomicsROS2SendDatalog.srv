@@ -1,3 +1,5 @@
-string datalog_content
+string  datalog_content             # Can be just string or file name, that will be uploaded to IPFS
+bool    ipfs_file_status    True    # Status if datalog is needed to sent as IPFS file, default is True
+bool    encrypt_status      False   # Status if IPFS file should be encrypted, default is False
 ---
-string result
+string  datalog_hash                # Hash of the datalog transaction

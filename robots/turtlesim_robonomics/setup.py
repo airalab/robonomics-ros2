@@ -1,13 +1,12 @@
 from setuptools import find_packages, setup
-
 import os
 from glob import glob
 
-package_name = 'robonomics_ros2_examples'
+package_name = 'turtlesim_robonomics'
 
 setup(
     name=package_name,
-    version='0.0.3',
+    version='2.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -18,13 +17,13 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Ivan Berman',
-    maintainer_email='berman@robonomics.network',
-    description='Simple examples how to use Robonomics ROS2 wrapper',
+    maintainer_email='fingerling42@proton.me',
+    description='Example how to use Robonomics ROS2 wrapper with Turtlesim',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'turtlesim_robonomics_handler = robonomics_ros2_examples.turtlesim_robonomics_handler:main',
+            'turtlesim_robonomics = turtlesim_robonomics.turtlesim_robonomics:main',
         ],
     },
 )

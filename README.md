@@ -33,13 +33,14 @@
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
         <li><a href="#installation-and-building">Installation and Building</a></li>
+        <li><a href="#configuration">Configuration</a></li>
       </ul>
     </li>
     <li>
       <a href="#usage">Usage</a>
         <ul>
         <li><a href="#testing-with-turtlesim">Testing with Turtlesim</a></li>
-        <li><a href="#programming-your-node">Programming Your Node</a></li>
+        <li><a href="#programming-your-wrapper-implementation">Programming Your Wrapper Implementation</a></li>
         </ul>
     </li>
     <li><a href="#roadmap">Roadmap</a></li>
@@ -64,8 +65,10 @@ for it in the Robonomics parachain, which is used to control the device or recei
 
 Available features include: 
 
-* **launch** — function of launching a device to execute any command with a specified set of parameters;
-* **datalog** — function for publishing any device data.
+* **Launch function** — launching a device to execute any command with a specified set of parameters passed as a file.
+* **Datalog function** — publishing any device data in a form of hash to parachain.
+* **Usage of Robonomics subscription** — the ability to send transactions without a fee.
+* **File encryption and decryption** — protection of files with public key encryption.
 
 To pack and unpack data, [InterPlanetary File System](https://ipfs.tech/) is used, which allows to access files 
 by their unique hash.
@@ -80,19 +83,24 @@ To learn more about Robonomics, please refer to the official documentation:
 For convenience, the project is divided into several ROS 2 packages:
 
     .
-    ├── ipfs_handler                            # An auxiliary package that implements ROS 2 services 
-    │                                           # for uploading and downloading IPFS files
-    ├── robonomics_ros2_examples                # Package with turtlesim example for testing
-    ├── robonomics_ros2_interfaces              # A package that describes all types of ROS 2 services and messages
-    ├── robonomics_ros2_pubsub                  # Main package for interaction with Robonomics
-    │   ├── config
-    │   │   ├── robonomics_params_template.yaml # Config file for account credentials, IPFS directory, etc.
+    ├── config                                   
+    │   └── robonomics_pubsub_params_template.yaml    # Config file for account credentials, IPFS directory, etc.
+    ├── robonomics_ros2_interfaces                    # A package that describes all types of ROS 2 services and messages
+    ├── robonomics_ros2_pubsub                        # Main package for interaction with Robonomics
+    │   ├── ipfs_files                                # Default IPFS file storage directory
     │   ├── robonomics_ros2_pubsub              
-    │   │   ├── utils                           # Directory for various utility functions
-    │   │   ├── robonomics_ros2_receiver.py     # ROS 2 node for receiving launch commands and datalog content 
-    │   │   │                                   # from another account
-    │   │   └── robonomics_ros2_sender.py       # ROS 2 node for sending launch commands and datalogs
+    │   │   ├── utils                                 # Directory for various utility functions
+    │   │   ├── robonomics_ros2_pubsub.py             # Main node for creating ROS 2 services with Robonomics functions
+    │   │   └── ...
     │   └── ...
+    ├── robonomics_ros2_robot_handler                 # A package with templates of robot-specific wrapper implementations
+    │   ├── launch
+    │   │   └── robot_template_robonomics_launch.py   # A template for launch file
+    │   ├── robonomics_ros2_robot_handler
+    │   │   └── basic_robonomics_handler.py           # A base class for accessing the pubsub node finctions
+    │   └── ...
+    ├── robots                                        # A directory with packages for robot-specific wrapper implementations
+    │   └── turtlesim_robonomics                      # A package with turtlesim example for testing
     └── ...
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -104,7 +112,7 @@ For convenience, the project is divided into several ROS 2 packages:
 
 Make sure you have the following software installed: 
 
-* Linux OS distribution (tested on [Ubuntu 22.04.3](https://releases.ubuntu.com/jammy/))
+* Linux OS distribution (tested on [Ubuntu 22.04.4](https://releases.ubuntu.com/jammy/))
 * ROS 2 distribution (tested on [Humble version](https://docs.ros.org/en/humble/Installation.html))
 * [Python 3](https://www.python.org/downloads/) (tested on 3.10.12)
 * [IPFS node](https://docs.ipfs.tech/) (tested on [IPFS Kubo](https://docs.ipfs.tech/install/command-line/) 0.26.0)
@@ -138,45 +146,38 @@ https://wiki.robonomics.network/docs/create-account-in-dapp
     ```shell
     git clone https://github.com/Fingerling42/robonomics-ros2.git
     ```
-   
-3. Copy and rename the configuration file template:
-    ```shell
-    cp robonomics_ros2_pubsub/config/robonomics_params_template.yaml robonomics_ros2_pubsub/config/robonomics_params.yaml
-    ```
-   
-4. Insert the account seed phrase and the account type into new `robonomics_params.yaml` file. 
-    ```yaml
-    /**:
-      ros__parameters:
-        seed: 'robot seed phrase'
-        crypto_type: 'ED25519 or SR25519'
-    ```
-   
-   > **WARNING**: The seed phrase is sensitive information that allows anyone to use your account. Make sure you don't 
-   > upload a config file with it to GitHub or anywhere else.
 
-5. If you have a Robonomics subscription that allows you to send transactions without fees, please insert the address 
-of the subscription owner. Don't forget that your account must be added to your subscription.
-
-    ```yaml
-    /**:
-      ros__parameters:
-        rws_owner_address: ''
-    ```
-   
-6. You may also want to change the directory where the files for IPFS will be stored. To do this, change the parameter
-   `ipfs_files_path`.
-
-7. Then you can test the repository with turtlesim package or make your own robot integration. Anyway, after that
-you need to build the package. From `your_project_ws` directory run:
+3. Then you can test the repository with turtlesim package or make your own robot-specific wrapper implementations. 
+Anyway, after that you need to build the package. From `your_project_ws` directory run:
     ```shell
     colcon build
     ```
    
-8. Source the package to the environment (you will need it to do in every console instance):
+4. Source the package to the environment (you will need it to do in every console instance):
     ```shell
     source install/setup.bash
     ```
+
+### Configuration
+
+Before starting nodes, you need to set up a configuration file `robonomics_pubsub_params_template.yaml`, which must be 
+unique for each launched robot that needs to access Robonomics. Copy the template to any place convenient for you and 
+fill in the required fields.
+
+Pay attention to the `account_seed` and `crypto_type` fields, as they determine the account of your robot.
+
+> **WARNING**: The seed phrase is sensitive information that allows anyone to use your account. Make sure you don't 
+> upload a config file with it to GitHub or anywhere else.
+
+If you have a Robonomics subscription that allows you to send transactions without fees, please insert the address 
+of the subscription owner to the `rws_owner_address` field. Don't forget that your account must be added 
+to your subscription.
+   
+You may also want to change the directory where the files for IPFS will be stored. To do this, change the 
+parameter `ipfs_dir_path`, otherwise it will use the default directory.
+
+The fields `crypt_recipient_address` and `crypt_sender_address` are used to specify file encryption and 
+decryption addresses.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -189,24 +190,37 @@ you need to build the package. From `your_project_ws` directory run:
     ```shell
     ipfs daemon
     ```
+   
+2. Create two configuration files for two instances of Turtlesim and Robonomics pubsub.
 
-2. Run the ROS 2 launch file from example directory. It will launch all necessary nodes: turtlesim itself, Robonomics
-integration for turtlesim and Robonomics ROS 2 wrapper:
+3. Run the ROS 2 launch files for two turtle with different configuration files and namespaces (this is necessary to 
+distinguish between identical nodes for different instances). They will launch all necessary nodes: Turtlesim itself, 
+wrapper implementation for Turtlesim and Robonomics pubsub:
+
     ```shell
-    ros2 launch robonomics_ros2_examples turtlesim_robonomics_launch.py
+    ros2 launch turtlesim_robonomics turtlesim_robonomics_launch.py pubsub_params_path:=./turtlesim1_pubsub_params.yaml namespace:='turtlesim1'
+    ```
+   
+    ```shell
+    ros2 launch turtlesim_robonomics turtlesim_robonomics_launch.py pubsub_params_path:=./turtlesim2_pubsub_params.yaml namespace:='turtlesim2'
     ```
 
-3. You will see the simulator with turtle and ROS 2 logs in the console with IPFS ID, path to directory with IPFS files,
-and Robonomics address. The node with Robonomics integration starts publish datalogs with a turtle position every 1 min. 
-You can check the datalog transactions, using, for example, [Subscan](https://robonomics.subscan.io/) explorer (just 
-enter your Robonomics address). 
+4. You will see the simulator with turtles and ROS 2 logs in the console with IPFS ID, path to directory with IPFS files,
+and Robonomics address. The node starts publish datalogs with turtles position every 2 min. You can check the datalog 
+transactions, using, for example, [Subscan](https://robonomics.subscan.io/) explorer (just enter the Robonomics address). 
 
-4. The node also starts waiting for every launch command, that will be sent to specified address. You can test it using 
-the [Robonomics parachain portal](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fkusama.rpc.robonomics.network%2F#/extrinsics):
-go to **Developers** → **Extrinsics** → **Submission** and find launch function. 
+5. In order for one of the turtle instance to receive the last datalog from another, call the following request to 
+the service (do not forget to insert address):
 
-5. The turtle is controlled using `/cmd_vel` topic, so you need to prepare corresponding messages, that will go as
-a launch parameter. For convenience, this messages need to be added as JSON-file to IPFS:
+    ```shell
+   ros2 service call /turtlesim1/robonomics/receive_datalog robonomics_ros2_interfaces/srv/RobonomicsROS2ReceiveDatalog "{sender_address: 'TURTLE2_ADDRESS', datalog_file_name: 'test_name.json'}"
+    ```
+   
+   A file with the position of one of the turtles will be downloaded to the IPFS directory.
+
+6. The nodes also start waiting for every launch command, that will be sent to specified address. The turtles are 
+controlled using `/cmd_vel` topic, so you need to prepare corresponding messages, that will go as a launch parameter. 
+For convenience, these messages are prepared as JSON-file:
     ```json
     {
        "linear":{
@@ -240,200 +254,38 @@ a launch parameter. For convenience, this messages need to be added as JSON-file
     }
     ```
     This JSON example will command the turtle to move twice.
+   
+7. Save this JSON to IPFS directory of some turtle and run the following:
 
-6. Then, you will need to upload the JSON file to IPFS and get its CID in special format (32-byte hash). You can use the
-following  Python script for this purpose, that will print the formatted string with CID in the console: 
-    ```python
-    import ipfs_api
-    from robonomicsinterface.utils import ipfs_qm_hash_to_32_bytes
-    
-    cid = ipfs_api.publish('./turtle_param.json')
-    
-    launch_param = ipfs_qm_hash_to_32_bytes(cid)
-    
-    print(launch_param)
+    ```shell
+   ros2 service call /turtlesim1/robonomics/send_launch robonomics_ros2_interfaces/srv/RobonomicsROS2SendLaunch {"param_file_name: 'test_name.json', target_address: 'TURTLE2_ADDRESS'"}
     ```
    
-7. For sending launch on the Robonomics parachain portal just specified the turtlesim address and formatted string as 
-the param. Submit transaction and watch for the simulation.
+   Watch for the simulation, the turtle should start moving.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Programming Your Node
+### Programming Your Wrapper Implementation
 
-When programming your own robot, you will need to create an integration that will use all the wrapper services and topic.
-> **NOTE**: The node should use `MultiThreadedExecutor()`, `MutuallyExclusiveCallbackGroup()` and `ReentrantCallbackGroup()` 
-> to avoid deadlocks, when one callback function calls another callback function. Please, read more about this issue
-> [here](https://docs.ros.org/en/humble/How-To-Guides/Using-callback-groups.html). It is recommended to use different 
-> callback groups for launch and datalog processing:
-```python
-...
-launch_callback_group = ReentrantCallbackGroup()
-datalog_callback_group = MutuallyExclusiveCallbackGroup()
-...
-```
-#### IPFS Services
+When programming your own robot, you will need to create a robot-specific wrapper implementation based on 
+prepared basic node class `BasicRobonomicsHandler`. Create your ROS 2 Python packages and import the following to your node:
 
-For your node, you will need to create two service client, for uploading and downloading files:
+```Python
+from robonomics_ros2_robot_handler.basic_robonomics_handler import BasicRobonomicsHandler
+...
+class YourRobotNode(BasicRobonomicsHandler):
 
-```python
-...
-self.ipfs_upload_client = self.create_client(
-    UploadToIPFS,
-    'ipfs/upload',
-    callback_group=datalog_callback_group,
-)
-...
-def ipfs_upload_request(self, file_name):
-    request = UploadToIPFS.Request()
-    request.file_name = file_name
-    future = self.ipfs_upload_client.call_async(request)
-    self.executor.spin_until_future_complete(future)
-    return future.result()
-```
-
-```python
-...
-self.ipfs_download_client = self.create_client(
-    DownloadFromIPFS,
-    'ipfs/download',
-    callback_group=launch_callback_group,
-)
-...
-def ipfs_download_request(self, cid, file_name):
-    request = DownloadFromIPFS.Request()
-    request.cid = cid
-    request.file_name = file_name
-    future = self.ipfs_download_client.call_async(request)
-    self.executor.spin_until_future_complete(future)
+    def __init__(self) -> None:
+        super().__init__()
 ...
 ```
 
-#### Receiving Launch
+The class has the structure shown in the figure below.
 
-A subscriber, that listens for appearing parameter for launch (usually its IPFS CID):
+![BasicRobonomicsHandler class structure](./docs/imgs/basic_robonomics_handler_class_diagram.png)
 
-```python
-...
-self.subscriber_launch_param = self.create_subscription(
-    String,
-    'robonomics/launch_param',
-    self.subscriber_launch_param_callback,
-    10,
-    callback_group=launch_callback_group,
-)
-self.subscriber_launch_param  # prevent unused variable warning
-...
-def subscriber_launch_param_callback(self, msg):
-    cid = msg.data
-    # Send request to IPFS service
-    response = self.ipfs_download_request(cid, 'file_name_with_msgs')
-    # Then you processing your messages
-...
-```
-
-#### Sending Launch
-
-A service client, that sends a parameter to specified address:
-
-```python
-...
-self.send_launch_client = self.create_client(
-    RobonomicsROS2SendLaunch,
-    'robonomics/send_launch',
-    callback_group=launch_callback_group,
-)
-...
-def send_launch_request(self, address, param):
-    request = RobonomicsROS2SendLaunch.Request()
-    request.address = address
-    request.param = param
-    future = self.ipfs_upload_client.call_async(request)
-    self.executor.spin_until_future_complete(future)
-    return future.result()
-...
-```
-
-#### Receiving Last Datalog
-
-A service client, that receives a content of last datalog from specified address:
-
-```python
-...
-self.receive_last_datalog_client = self.create_client(
-    RobonomicsROS2ReceiveLastDatalog,
-    'robonomics/receive_last_datalog',
-    callback_group=datalog_callback_group,
-)
-...
-def receive_last_datalog_request(self, address):
-    request = RobonomicsROS2ReceiveLastDatalog.Request()
-    request.address = address
-    future = self.ipfs_upload_client.call_async(request)
-    self.executor.spin_until_future_complete(future)
-    return future.result()
-...
-```
-
-#### Sending Datalog
-
-A service client, that sends datalogs based on data from topic. It is recommended to use it with a Timer
-class to control how often data is sent (sending too often can drain your account!):
-
-```python
-...
-self.send_datalog_client = self.create_client(
-    RobonomicsROS2SendDatalog,
-    'robonomics/send_datalog',
-    callback_group=datalog_callback_group,
-)
-...
-def send_datalog_request(self, datalog_content):
-    request = RobonomicsROS2SendDatalog.Request()
-    request.datalog_content = datalog_content
-    future = self.send_datalog_client.call_async(request)
-    self.executor.spin_until_future_complete(future)
-    return future.result()
-...
-self.datalog_timer = self.create_timer(
-    60, # secs
-    self.datalog_timer_callback,
-)
-...
-def datalog_timer_callback(self):
-   # Preparing IPFS file
-   ...
-   # Upload file to IPFS
-   response_ipfs = self.ipfs_upload_request(self.file_name)
-   ...
-   # Sending datalog
-   response_datalog = self.send_datalog_request(response_ipfs.cid)
-...
-```
-
-#### File Encryption and Decryption
-
-To protect your files before sending them to IPFS, you can encrypt them with your private key and give access only to 
-specified public key. To do this, you need to specify the recipient and sender public addresses in the config.
-
-```yaml
-/robonomics_ros2_pubsub:
-  ros__parameters:
-    ...
-    recipient_address: '' # An address that can open an encrypted file
-    sender_address: ''    # An address from which the encrypted file can be opened by a robot
-```
-
-The following functions are available for encrypting and decrypting files:
-
-```python
-from robonomics_ros2_pubsub.utils.crypto_utils import encrypt_file, decrypt_file
-...
-file_crypt = encrypt_file(file_name, ipfs_dir)  # Creates new file with encrypted data
-...
-decrypt_file(file_name, ipfs_dir)               # Rewrites encrypted file with decrypted data
-...
-```
+For the convenience of launching all nodes and pushing a common namespace to them, you can use the launch file template in
+the `/robonomics_ros2_robot_handler/launch` directory. This launch file takes two arguments: `pubsub_params_path` and `namespace`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -443,8 +295,9 @@ decrypt_file(file_name, ipfs_dir)               # Rewrites encrypted file with d
 - [x] Add basic datalog and launch functions
 - [x] Add IPFS support
 - [x] Add file encryption
+- [x] Add support for Robonomics subscription
+- [ ] Add support for IPFS pinning service
 - [ ] Add checks for IPFS file availability
-- [ ] Add support for RWS calls
 - [ ] Add digital twin functionality
 - [ ] Add a selection of the IPFS connection type
 - [ ] Rosbag2 integration?

@@ -1,0 +1,6 @@
+string                      sender_address              # Address from which is needed to receive the datalog
+string                      datalog_file_name   ''      # Name for IPFS file, default will be IPFS hash
+bool                        decrypt_status      False   # Status if IPFS file should be decrypted, default is False
+---
+builtin_interfaces/Time     timestamp                   # Timestamp of datalog
+string                      datalog_content             # Can be just string or file name, downloaded from IPFS

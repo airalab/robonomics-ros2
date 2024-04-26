@@ -2,15 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>robonomics_ros2_interfaces</name>
-  <version>0.0.1</version>
+  <version>2.0.0</version>
   <description>Description of all message/services types for Robonomics wrapper for ROS 2</description>
-  <maintainer email="berman@robonomics.network">Ivan Berman</maintainer>
+  <maintainer email="fingerling42@proton.me">Ivan Berman</maintainer>
   <license>Apache-2.0</license>
 
   <!-- Dependencies for tool that is executed during the build process -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!-- Dependencies for interface generation executed during the build process -->
+  <depend>builtin_interfaces</depend>
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
   <!-- Dependencies that are needed at execution-time  -->

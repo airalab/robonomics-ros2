@@ -1,134 +1,74 @@
-import os
-from ament_index_python.packages import get_package_share_directory
-import yaml
-from robonomicsinterface import Account, Datalog, Launch, RWS
-from substrateinterface import Keypair, KeypairType
+from robonomicsinterface import Account
+
+import ipfs_api
+
+from substrateinterface import Keypair
 from scalecodec.utils.ss58 import ss58_decode
 
 
-def load_params() -> dict:
+def ipfs_upload(file_path: str) -> str:
     """
-    Load params from YAML config file
-    :return: dictionary with params
+    Function for pushing files to IPFS
+    :param file_path: Path to the file
+    :return: cid: CID of file
     """
-    # Find config file
-    config = os.path.join(
-        get_package_share_directory('robonomics_ros2_pubsub'),
-        'config',
-        'robonomics_params.yaml'
-    )
-    with open(config, 'r') as config_file:
-        params_dict = yaml.load(config_file, Loader=yaml.SafeLoader)
-
-    return params_dict
+    cid = ipfs_api.publish(file_path)
+    return cid
 
 
-def create_launch_datalog_instance(account: Account) -> [Datalog, Launch, str]:
+def ipfs_download(cid: str, file_path: str) -> None:
     """
-    Initialize datalog object taking into account RWS
-    :param account  Robonomics account with seed
-    :return:        Datalog and Launch objects, subscription status
+    Function for download files from IPFS
+    :param cid: File CID
+    :param file_path: Full path for saving file
+    :return: None
     """
-    # Load params
-    params_dict = load_params()
-    rws_owner_address = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['rws_owner_address']
-
-    # Prepare address and rws module for requests
-    account_address = account.get_address()
-    rws = RWS(account)
-
-    if rws_owner_address == '':
-        rws_status = 'The address of the subscription owner is not specified, transactions will be performed as usual'
-        datalog = Datalog(account)
-        launch = Launch(account)
-    elif rws.get_days_left(addr=rws_owner_address) is False:
-        rws_status = 'No subscription was found for the owner address, transactions will be performed as usual'
-        datalog = Datalog(account)
-        launch = Launch(account)
-    elif rws.is_in_sub(rws_owner_address, account_address) is False:
-        rws_status = 'Account not added to the specified subscription, transactions will be performed as usual'
-        datalog = Datalog(account)
-        launch = Launch(account)
-    else:
-        rws_status = 'Robonomics subscription found, transactions will be performed with the RWS module'
-        datalog = Datalog(account, rws_sub_owner=rws_owner_address)
-        launch = Launch(account, rws_sub_owner=rws_owner_address)
-
-    return [datalog, launch, rws_status]
+    ipfs_api.download(cid, file_path)
 
 
-def create_account() -> Account:
-    """
-    Create account for Robonomics parachain
-    :return: Robonomics account
-    """
-    # Load params
-    params_dict = load_params()
-    account_seed = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['seed']
-    account_type = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['crypto_type']
-
-    # Checking the type of account and creating it
-    if account_type == 'ED25519':
-        crypto_type = KeypairType.ED25519
-    elif account_type == 'SR25519':
-        crypto_type = KeypairType.SR25519
-    else:
-        crypto_type = -1
-
-    account = Account(seed=account_seed, crypto_type=crypto_type)
-
-    return account
-
-
-def encrypt_file(file_name: str, file_dir: str) -> str:
+def encrypt_file(file_path: str, encrypting_account: Account, recipient_address: str) -> str:
     """
     Encrypt file with robot private key and recipient public key
-    :param file_name: File to encrypt
-    :param file_dir: Directory of file
-    :return: Encrypted file name
+    :param file_path:           File to encrypt
+    :param encrypting_account:  An account on whose behalf the file is encrypted
+    :param recipient_address:   An address that can open a file
+    :return:                    Encrypted file path
     """
-    account = create_account()
-    keypair: Keypair = account.keypair
-
-    # Load params
-    params_dict = load_params()
-    recipient_address = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['recipient_address']
+    keypair: Keypair = encrypting_account.keypair
 
     # Get recipient public key from its address
     recipient_public_key = bytes.fromhex(ss58_decode(recipient_address))
 
-    file_name_crypt = file_name + '.crypt'
+    file_path_crypt = file_path + '.crypt'
 
     # Create new encrypted file
-    with open(file_dir + file_name, 'r') as file:
-        with open(file_dir + file_name_crypt, 'w') as file_crypt:
+    with open(file_path, 'r') as file:
+        with open(file_path_crypt, 'w') as file_crypt:
             data = file.read()
             encrypted = keypair.encrypt_message(data, recipient_public_key)
             encrypted_data = f"0x{encrypted.hex()}"
             file_crypt.write(encrypted_data)
 
-    return file_name_crypt
+    return file_path_crypt
 
 
-def decrypt_file(file_name_crypt: str, file_dir: str) -> None:
+def decrypt_file(file_path: str, decrypting_account: Account, sender_address: str) -> str:
     """
     Decrypt file with robot private key and sender public key
-    :param file_name_crypt: File to decrypt
-    :param file_dir: Directory of file
-    :return: Encrypted file name
+    :param file_path: File to decrypt
+    :param decrypting_account: An account which is going to decrypt file
+    :param sender_address: An address that encrypted file
+    :return: Decrypted file name
     """
-    account = create_account()
-    keypair: Keypair = account.keypair
-
-    # Load params
-    params_dict = load_params()
-    sender_address = params_dict['/robonomics_ros2_pubsub']['ros__parameters']['sender_address']
+    keypair: Keypair = decrypting_account.keypair
 
     # Get sender public key from its address
     sender_public_key = bytes.fromhex(ss58_decode(sender_address))
 
+    file_path_decrypt = file_path + '.decrypt'
+
     # Decrypting data
-    with open(file_dir + file_name_crypt, 'r') as file_crypt:
+    with open(file_path, 'r') as file_crypt:
         encrypted_data = file_crypt.read()
         if encrypted_data[:2] == "0x":
             encrypted_data = encrypted_data[2:]
@@ -136,5 +76,7 @@ def decrypt_file(file_name_crypt: str, file_dir: str) -> None:
         decrypted_data = keypair.decrypt_message(bytes_encrypted, sender_public_key)
 
     # Save data to new file
-    with open(file_dir + file_name_crypt, 'w') as file_decrypt:
+    with open(file_path_decrypt, 'w') as file_decrypt:
         file_decrypt.write(decrypted_data.decode())
+
+    return file_path_decrypt
