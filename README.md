@@ -296,6 +296,7 @@ the `/robonomics_ros2_robot_handler/launch` directory. This launch file takes tw
 - [x] Add IPFS support
 - [x] Add file encryption
 - [x] Add support for Robonomics subscription
+- [ ] Add support for IPFS pinning service
 - [ ] Add checks for IPFS file availability
 - [ ] Add digital twin functionality
 - [ ] Add a selection of the IPFS connection type
