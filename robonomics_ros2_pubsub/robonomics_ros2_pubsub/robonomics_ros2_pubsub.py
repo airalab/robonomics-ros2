@@ -196,30 +196,23 @@ class RobonomicsROS2PubSub(Node):
                               ) -> RobonomicsROS2SendDatalog.Response:
         """
         Send datalog with specified content
-        :param request: datalog content (name of file or string), IPFS file status and encrypt status
+        :param request: datalog file name and list with addresses for file encryption
         :param response: hash of the datalog transaction
         :return: response
         """
         try:
-            # Check if datalog is IPFS file
-            if request.ipfs_file_status is True:
-                file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_content))
+            file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
 
-                # Check if encryption is needed
-                if request.encrypt_status is True and self.crypt_recipient_address != '':
-                    self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
-                    file_path = encrypt_file(file_path, self.account, [self.crypt_recipient_address])
+            # Check if encryption is needed
+            if request.encrypt_recipient_addresses != ['']:
+                self.get_logger().info('Encrypting file for specified addresses')
+                file_path = encrypt_file(file_path, self.account, request.encrypt_recipient_addresses)
 
-                # Upload file to IPFS
-                datalog_cid = ipfs_upload(file_path)
+            # Upload file to IPFS
+            datalog_cid = ipfs_upload(file_path)
 
-                self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
-                response.datalog_hash = self.datalog.record(datalog_cid)
-
-            else:
-                # Else if datalog is just string
-                self.get_logger().info('Sending datalog with content: %s' % request.datalog_content)
-                response.datalog_hash = self.datalog.record(request.datalog_content)
+            self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
+            response.datalog_hash = self.datalog.record(datalog_cid)
 
         except Exception as e:
             response.datalog_hash = ''
@@ -233,7 +226,7 @@ class RobonomicsROS2PubSub(Node):
                              ) -> RobonomicsROS2SendLaunch.Response:
         """
         Send launch to specified address with specified param
-        :param request: file name with param content, target address
+        :param request: file name with param content, target address, encrypt status
         :param response: hash of the datalog transaction
         :return: response
         """
@@ -243,9 +236,9 @@ class RobonomicsROS2PubSub(Node):
                 file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
 
                 # Check if encryption is needed and recipient address is valid
-                if self.crypt_recipient_address != '':
-                    self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
-                    file_path = encrypt_file(file_path, self.account, [self.crypt_recipient_address])
+                if request.encrypt_status is True:
+                    self.get_logger().info('Encrypting file for target address')
+                    file_path = encrypt_file(file_path, self.account, [request.target_address])
 
                 # Upload file to IPFS
                 param_cid = ipfs_upload(file_path)

@@ -1,4 +1,5 @@
-string  param_file_name             # Name of file that contains parameter
-string  target_address              # Address to be triggered with launch
+string  param_file_name         # Name of file that contains parameter
+string  target_address          # Address to be triggered with launch
+bool    encrypt_status  True    # Check whether the parameter file needs to be encrypted with the target address, default is True
 ---
-string  launch_hash                 # Hash of the launch transaction
+string  launch_hash             # Hash of the launch transaction
