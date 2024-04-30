@@ -57,8 +57,7 @@ class RobonomicsROS2PubSub(Node):
         self.account_type = pubsub_params_dict['crypto_type']
         rws_owner_address = pubsub_params_dict['rws_owner_address']
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
-        self.crypt_recipient_address = pubsub_params_dict['crypt_recipient_address']
-        self.crypt_sender_address = pubsub_params_dict['crypt_sender_address']
+        self.encrypted_launch_status = pubsub_params_dict['encrypted_launch_status']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -138,16 +137,6 @@ class RobonomicsROS2PubSub(Node):
             rclpy.Parameter.Type.STRING,
             self.ipfs_dir_path)
         self.set_parameters([ipfs_dir_path_param])
-
-        # Checking addresses for encrypt / decrypt file
-        if (self.crypt_recipient_address != '' and
-                is_valid_ss58_address(self.crypt_recipient_address, valid_ss58_format=32) is not True):
-            self.get_logger().warn('Given recipient address for file encryption is not correct')
-            self.crypt_recipient_address = ''
-        if (self.crypt_sender_address != '' and
-                is_valid_ss58_address(self.crypt_sender_address, valid_ss58_format=32) is not True):
-            self.get_logger().warn('Given sender address for file decryption is not correct')
-            self.crypt_sender_address = ''
 
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
@@ -286,23 +275,20 @@ class RobonomicsROS2PubSub(Node):
                     ipfs_download(cid=datalog_content, file_path=file_path)
 
                     # Check if decryption is needed and sender address is valid
-                    if request.decrypt_status is True and self.crypt_sender_address != '':
+                    if request.decrypt_status is True:
                         self.get_logger().info(
-                            'Decrypting file from specified address: %s' % self.crypt_sender_address)
-                        file_path = decrypt_file(file_path, self.account, self.crypt_sender_address)
+                            'Decrypting file from sender address')
+                        file_path = decrypt_file(file_path, self.account, request.sender_address)
 
                     response.datalog_content = file_path
 
+                    # Get timestamp with nanosec
+                    response.timestamp.sec = int(timestamp // 1000)
+                    response.timestamp.nanosec = int((timestamp % 1000) * 10 ** 6)
+
                 else:
                     # Else if datalog content is just string
-                    self.get_logger().info(
-                        'Receiving datalog from %s with string: %s' % (request.sender_address, datalog_content)
-                    )
-                    response.datalog_content = datalog_content
-
-                # Get timestamp with nanosec
-                response.timestamp.sec = int(timestamp // 1000)
-                response.timestamp.nanosec = int((timestamp % 1000) * 10**6)
+                    raise ValueError("Datalog is not IPFS hash")
 
             else:
                 raise ValueError("Invalid datalog sender address")
@@ -335,10 +321,9 @@ class RobonomicsROS2PubSub(Node):
             ipfs_download(cid=ipfs_hash, file_path=file_path)
 
             # Check if decryption is needed
-            if self.crypt_sender_address != '':
-                self.get_logger().info(
-                    'Decrypting launch parameter file from specified address: %s' % self.crypt_sender_address)
-                file_path = decrypt_file(file_path, self.account, self.crypt_sender_address)
+            if self.encrypted_launch_status is True:
+                self.get_logger().info('Decrypting launch parameter file with sender address')
+                file_path = decrypt_file(file_path, self.account, launch_sender_address)
 
             # Prepare ROS msg and send it to topic
             received_launch_msg = RobonomicsROS2ReceivedLaunch()

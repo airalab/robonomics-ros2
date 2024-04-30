@@ -13,8 +13,5 @@ rws_owner_address:        ''
 # Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path will be used
 ipfs_dir_path:            ''
 
-# An address that can open an encrypted file, leave empty to not encrypt IPFS files
-crypt_recipient_address:  ''
-
-# An address that sends encrypted file that can be decrypted by a robot, leave empty if IPFS file is not encrypt
-crypt_sender_address:     ''
+# Gets parameters from launch files with encryption
+encrypted_launch_status:     True
