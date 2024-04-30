@@ -208,7 +208,7 @@ class RobonomicsROS2PubSub(Node):
                 # Check if encryption is needed
                 if request.encrypt_status is True and self.crypt_recipient_address != '':
                     self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
-                    file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
+                    file_path = encrypt_file(file_path, self.account, [self.crypt_recipient_address])
 
                 # Upload file to IPFS
                 datalog_cid = ipfs_upload(file_path)
@@ -245,7 +245,7 @@ class RobonomicsROS2PubSub(Node):
                 # Check if encryption is needed and recipient address is valid
                 if self.crypt_recipient_address != '':
                     self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
-                    file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
+                    file_path = encrypt_file(file_path, self.account, [self.crypt_recipient_address])
 
                 # Upload file to IPFS
                 param_cid = ipfs_upload(file_path)
@@ -308,8 +308,8 @@ class RobonomicsROS2PubSub(Node):
                     response.datalog_content = datalog_content
 
                 # Get timestamp with nanosec
-                response.timestamp.sec = timestamp // 1000
-                response.timestamp.nanosec = (timestamp % 1000) * 10**6
+                response.timestamp.sec = int(timestamp // 1000)
+                response.timestamp.nanosec = int((timestamp % 1000) * 10**6)
 
             else:
                 raise ValueError("Invalid datalog sender address")
