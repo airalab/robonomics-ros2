@@ -1,4 +1,4 @@
-from typing_extensions import Self, Any
+from typing_extensions import Self, Any, List, Optional
 
 import rclpy
 from rclpy.node import Node
@@ -77,23 +77,20 @@ class BasicRobonomicsHandler(Node):
         )
 
     def send_datalog_request(self,
-                             datalog_content: str,
-                             ipfs_file_status: bool = True,
-                             encrypt_status: bool = False
+                             datalog_file_name: str,
+                             encrypt_recipient_addresses: Optional[List[str]]
                              ) -> str:
         """
         Request function to send datalog
-        :param datalog_content: string or file name, that will be uploaded to IPFS
-        :param ipfs_file_status: status if datalog is needed to sent as IPFS file, default is True
-        :param encrypt_status: status if IPFS file should be encrypted, default is False
-        :return: hash of the datalog transaction
+        :param  datalog_file_name: File name that will be uploaded to IPFS
+        :param  encrypt_recipient_addresses: Addresses for file encryption, if empty, encryption will not be performed
+        :return: Hash of the datalog transaction
         """
 
         # Preparing a request
         request = RobonomicsROS2SendDatalog.Request()
-        request.datalog_content = datalog_content
-        request.ipfs_file_status = ipfs_file_status
-        request.encrypt_status = encrypt_status
+        request.datalog_file_name = datalog_file_name
+        request.encrypt_recipient_addresses = encrypt_recipient_addresses
 
         # Making a request and wait for its execution
         future = self.send_datalog_client.call_async(request)
@@ -104,12 +101,14 @@ class BasicRobonomicsHandler(Node):
 
     def send_launch_request(self,
                             param_file_name: str,
-                            target_address: str
+                            target_address: str,
+                            encrypt_status: bool = True,
                             ) -> str:
         """
         Request function to send launch command
-        :param param_file_name: name of file that contains parameter
-        :param target_address: address to be triggered with launch
+        :param param_file_name: Name of file that contains parameter
+        :param target_address: Address to be triggered with launch
+        :param encrypt_status: Check whether the parameter file needs to be encrypted with the target address, default is True
         :return: hash of the launch transaction
         """
 
@@ -117,6 +116,7 @@ class BasicRobonomicsHandler(Node):
         request = RobonomicsROS2SendLaunch.Request()
         request.param_file_name = param_file_name
         request.target_address = target_address
+        request.encrypt_status = encrypt_status
 
         # Making a request and wait for its execution
         future = self.send_launch_client.call_async(request)
@@ -128,13 +128,11 @@ class BasicRobonomicsHandler(Node):
     def receive_datalog_request(self,
                                 sender_address: str,
                                 datalog_file_name: str = '',
-                                decrypt_status: bool = False,
                                 ) -> [float, str]:
         """
         Request function to get last datalog from address
         :param sender_address: Robonomics address from which is needed to receive the datalog
         :param datalog_file_name: name for IPFS file, default will be IPFS hash
-        :param decrypt_status: status if IPFS file should be decrypted, default is False
         :return: timestamp of datalog in sec and string or file name, downloaded from IPFS
         """
 
@@ -142,7 +140,6 @@ class BasicRobonomicsHandler(Node):
         request = RobonomicsROS2ReceiveDatalog.Request()
         request.sender_address = sender_address
         request.datalog_file_name = datalog_file_name
-        request.decrypt_status = decrypt_status
 
         # Making a request and wait for its execution
         future = self.receive_datalog_client.call_async(request)
