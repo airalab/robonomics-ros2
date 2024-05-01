@@ -122,9 +122,8 @@ def decrypt_file(file_path: str, decrypting_account: Account, sender_address: st
         try:
             file_crypt_data = file_crypt.read()
             file_crypt_dict = json.loads(file_crypt_data)
-        except ValueError as e:
+        except ValueError:
             # Return same file if it not valid JSON
-            print(e)
             decrypt_status = False
             return [file_path, decrypt_status]
 

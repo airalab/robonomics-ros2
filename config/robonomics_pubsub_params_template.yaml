@@ -12,6 +12,3 @@ rws_owner_address:        ''
 
 # Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path will be used
 ipfs_dir_path:            ''
-
-# Gets parameters from launch files with encryption
-encrypted_launch_status:     True
