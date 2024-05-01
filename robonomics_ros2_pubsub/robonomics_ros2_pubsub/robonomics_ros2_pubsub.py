@@ -115,6 +115,7 @@ class RobonomicsROS2PubSub(Node):
             self.datalog = Datalog(self.account, rws_sub_owner=rws_owner_address)
             self.launch = Launch(self.account, rws_sub_owner=rws_owner_address)
             self.rws_users_list = robonomics_subscription.get_devices(rws_owner_address)
+            self.get_logger().info('Found users in Robonomics subscription: %s' % str(self.rws_users_list))
         else:
             self.datalog = Datalog(self.account)
             self.launch = Launch(self.account)

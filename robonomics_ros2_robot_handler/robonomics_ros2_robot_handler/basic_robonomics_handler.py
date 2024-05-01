@@ -109,7 +109,7 @@ class BasicRobonomicsHandler(Node):
         Request function to send launch command
         :param param_file_name: Name of file that contains parameter
         :param target_address: Address to be triggered with launch
-        :param encrypt_status: Check whether the parameter file needs to be encrypted with the target address, default is True
+        :param encrypt_status: Check if the parameter file needs to be encrypted with a target address, default is True
         :return: hash of the launch transaction
         """
 
