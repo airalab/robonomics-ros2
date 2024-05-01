@@ -26,21 +26,22 @@ class BasicRobonomicsHandler(Node):
         # File name for launch parameter
         self.param_file_name = ''
 
-        # Service for getting IPFS path parameter
-        self.get_ipfs_path_parameter_client = self.create_client(
+        # Service for getting parameters from pubsub
+        self.get_pubsub_parameter_client = self.create_client(
             GetParameters,
             'robonomics_ros2_pubsub/get_parameters'
         )
-        while not self.get_ipfs_path_parameter_client.wait_for_service(timeout_sec=2.0):
+        while not self.get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Pubsub parameter service not available, waiting again...')
 
-        # Make request to get IPFS path class variable
+        # Make request to get pubsub parameters with IPFS path and RWS user list
         request = GetParameters.Request()
-        request.names = ["ipfs_dir_path"]
-        future = self.get_ipfs_path_parameter_client.call_async(request)
+        request.names = ['ipfs_dir_path', 'rws_users_list']
+        future = self.get_pubsub_parameter_client.call_async(request)
         rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
         # has not yet created an executor
         self.ipfs_dir_path = future.result().values[0].string_value
+        self.rws_users_list = future.result().values[1].string_array_value
 
         # Create client for sending datalog
         self.send_datalog_client = self.create_client(

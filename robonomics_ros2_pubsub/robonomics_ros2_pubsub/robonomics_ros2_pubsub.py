@@ -43,7 +43,10 @@ class RobonomicsROS2PubSub(Node):
                  ParameterDescriptor(description='Path to config file with parameters')),
                 ('ipfs_dir_path',
                  rclpy.Parameter.Type.STRING,
-                 ParameterDescriptor(description='Path to directory with IPFS files'))
+                 ParameterDescriptor(description='Path to directory with IPFS files')),
+                ('rws_users_list',
+                 rclpy.Parameter.Type.STRING_ARRAY,
+                 ParameterDescriptor(description='All user addresses of Robonomics subscription')),
             ]
         )
         # Path to YAML-file with parameters
@@ -111,10 +114,17 @@ class RobonomicsROS2PubSub(Node):
         if rws_status is True:
             self.datalog = Datalog(self.account, rws_sub_owner=rws_owner_address)
             self.launch = Launch(self.account, rws_sub_owner=rws_owner_address)
+            self.rws_users_list = robonomics_subscription.get_devices(rws_owner_address)
         else:
             self.datalog = Datalog(self.account)
             self.launch = Launch(self.account)
-            self.rws_users_list = robonomics_subscription.get_devices(rws_owner_address)
+
+        # Set RWS users list parameter
+        rws_users_list_param = Parameter(
+            'rws_users_list',
+            rclpy.Parameter.Type.STRING_ARRAY,
+            self.rws_users_list)
+        self.set_parameters([rws_users_list_param])
 
         # Checking IPFS daemon
         try:
