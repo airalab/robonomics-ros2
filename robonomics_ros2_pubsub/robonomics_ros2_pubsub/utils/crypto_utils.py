@@ -2,6 +2,7 @@ from robonomicsinterface import Account
 
 import typing
 import json
+import os
 import ipfs_api
 
 from substrateinterface import Keypair, KeypairType
@@ -107,37 +108,56 @@ def encrypt_file(file_path: str, encrypting_account: Account, recipient_addresse
     return file_path_crypt
 
 
-def decrypt_file(file_path: str, decrypting_account: Account, sender_address: str) -> str:
+def decrypt_file(file_path: str, decrypting_account: Account, sender_address: str) -> [str, bool]:
     """
     Decrypt file with robot private key and sender public key
     :param file_path: File to decrypt
     :param decrypting_account: An account which is going to decrypt file
     :param sender_address: An address that encrypted file
-    :return: Decrypted file name
+    :return: Decrypted file name and decryption status
     """
-    decrypting_keypair: Keypair = decrypting_account.keypair
-    decrypting_address = decrypting_account.get_address()
 
     # If decrypting account is in list of recipient addresses, then decrypt the data
     with open(file_path, 'r') as file_crypt:
-        file_crypt_data = json.loads(file_crypt.read())
-        if decrypting_address in file_crypt_data['encrypted_keys']:
-            # Decrypting seed used for data encryption
-            decrypted_random_seed = decrypt_data(file_crypt_data['encrypted_keys'][decrypting_address],
-                                                 decrypting_keypair,
-                                                 sender_address)
+        try:
+            file_crypt_data = json.loads(file_crypt.read())
 
-            # Decrypting data using decrypted random account
-            decrypted_random_account = Account(decrypted_random_seed, crypto_type=KeypairType.ED25519)
-            decrypted_data = decrypt_data(file_crypt_data['data'],
-                                          decrypted_random_account.keypair,
-                                          sender_address)
+            # Check if encryption is needed, if not return same file
+            if 'encrypted_keys' not in file_crypt_data:
+                decrypt_status = False
+                return [file_path, decrypt_status]
 
-            # Save data to new file
-            file_path_decrypt = file_path + '.decrypt'
-            with open(file_path_decrypt, 'w') as file_decrypt:
-                file_decrypt.write(decrypted_data)
+            decrypting_keypair: Keypair = decrypting_account.keypair
+            decrypting_address = decrypting_account.get_address()
 
-            return file_path_decrypt
-        else:
-            raise KeyError("Error in file decryption: account is not in recipient list")
+            if decrypting_address in file_crypt_data['encrypted_keys']:
+                # Decrypting seed used for data encryption
+                decrypted_random_seed = decrypt_data(file_crypt_data['encrypted_keys'][decrypting_address],
+                                                     decrypting_keypair,
+                                                     sender_address)
+
+                # Decrypting data using decrypted random account
+                decrypted_random_account = Account(decrypted_random_seed, crypto_type=KeypairType.ED25519)
+                decrypted_data = decrypt_data(file_crypt_data['data'],
+                                              decrypted_random_account.keypair,
+                                              sender_address)
+
+                # Save data to new file
+                [file_name, file_ext] = os.path.splitext(file_path)
+                file_dir = os.path.dirname(file_path)
+                file_path_decrypt = os.path.join(file_dir,
+                                                 "{file_name}_decrypt{file_ext}".format(file_name=file_name,
+                                                                                        file_ext=file_ext))
+                with open(file_path_decrypt, 'w') as file_decrypt:
+                    file_decrypt.write(decrypted_data)
+
+                decrypt_status = True
+
+                return [file_path_decrypt, decrypt_status]
+            else:
+                raise KeyError("Error in file decryption: account is not in recipient list")
+
+        except ValueError:
+            # Return same file if it not valid JSON
+            decrypt_status = False
+            return [file_path, decrypt_status]
