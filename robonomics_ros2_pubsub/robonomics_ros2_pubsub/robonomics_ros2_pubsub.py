@@ -43,7 +43,10 @@ class RobonomicsROS2PubSub(Node):
                  ParameterDescriptor(description='Path to config file with parameters')),
                 ('ipfs_dir_path',
                  rclpy.Parameter.Type.STRING,
-                 ParameterDescriptor(description='Path to directory with IPFS files'))
+                 ParameterDescriptor(description='Path to directory with IPFS files')),
+                ('rws_users_list',
+                 rclpy.Parameter.Type.STRING_ARRAY,
+                 ParameterDescriptor(description='All user addresses of Robonomics subscription')),
             ]
         )
         # Path to YAML-file with parameters
@@ -57,8 +60,6 @@ class RobonomicsROS2PubSub(Node):
         self.account_type = pubsub_params_dict['crypto_type']
         rws_owner_address = pubsub_params_dict['rws_owner_address']
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
-        self.crypt_recipient_address = pubsub_params_dict['crypt_recipient_address']
-        self.crypt_sender_address = pubsub_params_dict['crypt_sender_address']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -89,6 +90,7 @@ class RobonomicsROS2PubSub(Node):
 
         # Checking if subscription exists and actives for initialization of datalog and launch
         robonomics_subscription = RWS(self.account)
+        self.rws_users_list = ['']
         if rws_owner_address == '':
             self.get_logger().info('The address of the subscription owner is not specified, '
                                    'transactions will be performed as usual')
@@ -112,9 +114,18 @@ class RobonomicsROS2PubSub(Node):
         if rws_status is True:
             self.datalog = Datalog(self.account, rws_sub_owner=rws_owner_address)
             self.launch = Launch(self.account, rws_sub_owner=rws_owner_address)
+            self.rws_users_list = robonomics_subscription.get_devices(rws_owner_address)
+            self.get_logger().info('Found users in Robonomics subscription: %s' % str(self.rws_users_list))
         else:
             self.datalog = Datalog(self.account)
             self.launch = Launch(self.account)
+
+        # Set RWS users list parameter
+        rws_users_list_param = Parameter(
+            'rws_users_list',
+            rclpy.Parameter.Type.STRING_ARRAY,
+            self.rws_users_list)
+        self.set_parameters([rws_users_list_param])
 
         # Checking IPFS daemon
         try:
@@ -138,16 +149,6 @@ class RobonomicsROS2PubSub(Node):
             rclpy.Parameter.Type.STRING,
             self.ipfs_dir_path)
         self.set_parameters([ipfs_dir_path_param])
-
-        # Checking addresses for encrypt / decrypt file
-        if (self.crypt_recipient_address != '' and
-                is_valid_ss58_address(self.crypt_recipient_address, valid_ss58_format=32) is not True):
-            self.get_logger().warn('Given recipient address for file encryption is not correct')
-            self.crypt_recipient_address = ''
-        if (self.crypt_sender_address != '' and
-                is_valid_ss58_address(self.crypt_sender_address, valid_ss58_format=32) is not True):
-            self.get_logger().warn('Given sender address for file decryption is not correct')
-            self.crypt_sender_address = ''
 
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
@@ -196,30 +197,23 @@ class RobonomicsROS2PubSub(Node):
                               ) -> RobonomicsROS2SendDatalog.Response:
         """
         Send datalog with specified content
-        :param request: datalog content (name of file or string), IPFS file status and encrypt status
+        :param request: datalog file name and list with addresses for file encryption
         :param response: hash of the datalog transaction
         :return: response
         """
         try:
-            # Check if datalog is IPFS file
-            if request.ipfs_file_status is True:
-                file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_content))
+            file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
 
-                # Check if encryption is needed
-                if request.encrypt_status is True and self.crypt_recipient_address != '':
-                    self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
-                    file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
+            # Check if encryption is needed
+            if request.encrypt_recipient_addresses:
+                self.get_logger().info('Encrypting file for specified addresses')
+                file_path = encrypt_file(file_path, self.account, request.encrypt_recipient_addresses)
 
-                # Upload file to IPFS
-                datalog_cid = ipfs_upload(file_path)
+            # Upload file to IPFS
+            datalog_cid = ipfs_upload(file_path)
 
-                self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
-                response.datalog_hash = self.datalog.record(datalog_cid)
-
-            else:
-                # Else if datalog is just string
-                self.get_logger().info('Sending datalog with content: %s' % request.datalog_content)
-                response.datalog_hash = self.datalog.record(request.datalog_content)
+            self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
+            response.datalog_hash = self.datalog.record(datalog_cid)
 
         except Exception as e:
             response.datalog_hash = ''
@@ -233,7 +227,7 @@ class RobonomicsROS2PubSub(Node):
                              ) -> RobonomicsROS2SendLaunch.Response:
         """
         Send launch to specified address with specified param
-        :param request: file name with param content, target address
+        :param request: file name with param content, target address, encrypt status
         :param response: hash of the datalog transaction
         :return: response
         """
@@ -243,9 +237,9 @@ class RobonomicsROS2PubSub(Node):
                 file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
 
                 # Check if encryption is needed and recipient address is valid
-                if self.crypt_recipient_address != '':
-                    self.get_logger().info('Encrypting file for specified address: %s' % self.crypt_recipient_address)
-                    file_path = encrypt_file(file_path, self.account, self.crypt_recipient_address)
+                if request.encrypt_status is True:
+                    self.get_logger().info('Encrypting file for target address')
+                    file_path = encrypt_file(file_path, self.account, [request.target_address])
 
                 # Upload file to IPFS
                 param_cid = ipfs_upload(file_path)
@@ -283,7 +277,7 @@ class RobonomicsROS2PubSub(Node):
                         'Receiving datalog from %s with IPFS hash: %s' % (request.sender_address, datalog_content)
                     )
 
-                    # Check if datalog file name is set
+                    # Check if datalog file name is set, if not then use IPFS hash as a name
                     if request.datalog_file_name == '':
                         file_path = str(os.path.join(self.ipfs_dir_path, datalog_content))
                     else:
@@ -292,24 +286,20 @@ class RobonomicsROS2PubSub(Node):
                     # Download from IPFS
                     ipfs_download(cid=datalog_content, file_path=file_path)
 
-                    # Check if decryption is needed and sender address is valid
-                    if request.decrypt_status is True and self.crypt_sender_address != '':
-                        self.get_logger().info(
-                            'Decrypting file from specified address: %s' % self.crypt_sender_address)
-                        file_path = decrypt_file(file_path, self.account, self.crypt_sender_address)
+                    # Decrypt file if it is needed
+                    [file_path, decrypt_status] = decrypt_file(file_path, self.account, request.sender_address)
+                    if decrypt_status is True:
+                        self.get_logger().info('Datalog file is decrypted')
 
                     response.datalog_content = file_path
 
+                    # Get timestamp with nanosec
+                    response.timestamp.sec = int(timestamp // 1000)
+                    response.timestamp.nanosec = int((timestamp % 1000) * 10 ** 6)
+
                 else:
                     # Else if datalog content is just string
-                    self.get_logger().info(
-                        'Receiving datalog from %s with string: %s' % (request.sender_address, datalog_content)
-                    )
-                    response.datalog_content = datalog_content
-
-                # Get timestamp with nanosec
-                response.timestamp.sec = timestamp // 1000
-                response.timestamp.nanosec = (timestamp % 1000) * 10**6
+                    raise ValueError("Datalog is not IPFS hash")
 
             else:
                 raise ValueError("Invalid datalog sender address")
@@ -341,11 +331,10 @@ class RobonomicsROS2PubSub(Node):
             # Download from IPFS
             ipfs_download(cid=ipfs_hash, file_path=file_path)
 
-            # Check if decryption is needed
-            if self.crypt_sender_address != '':
-                self.get_logger().info(
-                    'Decrypting launch parameter file from specified address: %s' % self.crypt_sender_address)
-                file_path = decrypt_file(file_path, self.account, self.crypt_sender_address)
+            # Decrypt file if it is needed
+            [file_path, decrypt_status] = decrypt_file(file_path, self.account, launch_sender_address)
+            if decrypt_status is True:
+                self.get_logger().info('File with launch parameters is decrypted')
 
             # Prepare ROS msg and send it to topic
             received_launch_msg = RobonomicsROS2ReceivedLaunch()
