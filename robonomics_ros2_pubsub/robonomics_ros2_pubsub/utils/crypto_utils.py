@@ -9,20 +9,6 @@ from substrateinterface import Keypair, KeypairType
 from scalecodec.utils.ss58 import ss58_decode
 
 
-def ed25519_address_check(address: str) -> bool:
-    """
-    Function to validate if address have ED25519 type
-    :param address: parachain address to check
-    :return: address check true of false
-    """
-    public_key_first = Keypair(ss58_address=address, crypto_type=KeypairType.ED25519).public_key
-    public_key_second = bytes.fromhex(ss58_decode(address))
-    if public_key_first == public_key_second:
-        return True
-    else:
-        return False
-
-
 def ipfs_upload(file_path: str) -> str:
     """
     Function for pushing files to IPFS
@@ -112,9 +98,11 @@ def encrypt_file(file_path: str, encrypting_account: Account, recipient_addresse
     with open(file_path_crypt, 'w') as file_crypt:
         # For each recipient address try to encrypt random account seed
         success_encrypt_attempts = 0
+        success_encrypt_addresses = []
         for address in recipient_addresses:
             try:
                 encrypted_key = encrypt_data(random_seed, encrypting_keypair, address)
+                success_encrypt_addresses.append(address)
                 success_encrypt_attempts += 1
                 file_crypt_data['encrypted_keys'][address] = encrypted_key
             except Exception as e:
@@ -125,13 +113,13 @@ def encrypt_file(file_path: str, encrypting_account: Account, recipient_addresse
         file_crypt.write(json_object)
 
     if success_encrypt_attempts == len(recipient_addresses):
-        status = 'Encryption is succeed'
+        status = 'Encryption is succeed for all addresses: %s' % success_encrypt_addresses
         return [file_path_crypt, status]
     elif 0 < success_encrypt_attempts < len(recipient_addresses):
-        status = 'Encryption is done only for some address, check their types'
+        status = 'Encryption is done only for some addresses, check types: %s' % success_encrypt_addresses
         return [file_path_crypt, status]
     else:
-        status = 'Encryption is not done, check address types'
+        status = 'Encryption is not done, check addresses types'
         return [file_path, status]
 
 

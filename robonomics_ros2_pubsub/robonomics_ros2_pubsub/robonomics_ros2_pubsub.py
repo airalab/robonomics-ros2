@@ -20,7 +20,7 @@ from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
 
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
-                                            RobonomicsROS2ReceiveDatalog)
+                                            RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
 
 from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file
@@ -44,9 +44,6 @@ class RobonomicsROS2PubSub(Node):
                 ('ipfs_dir_path',
                  rclpy.Parameter.Type.STRING,
                  ParameterDescriptor(description='Path to directory with IPFS files')),
-                ('rws_users_list',
-                 rclpy.Parameter.Type.STRING_ARRAY,
-                 ParameterDescriptor(description='All user addresses of Robonomics subscription')),
             ]
         )
         # Path to YAML-file with parameters
@@ -58,7 +55,7 @@ class RobonomicsROS2PubSub(Node):
         account_seed = pubsub_params_dict['account_seed']
         remote_node_url = pubsub_params_dict['remote_node_url']
         self.account_type = pubsub_params_dict['crypto_type']
-        rws_owner_address = pubsub_params_dict['rws_owner_address']
+        self.rws_owner_address = pubsub_params_dict['rws_owner_address']
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
 
         # Check if remote node url is not specified, use default
@@ -89,21 +86,20 @@ class RobonomicsROS2PubSub(Node):
         self.get_logger().info('My address is %s' % account_address)
 
         # Checking if subscription exists and actives for initialization of datalog and launch
-        robonomics_subscription = RWS(self.account)
-        self.rws_users_list = ['']
-        if rws_owner_address == '':
+        self.robonomics_subscription = RWS(self.account)
+        if self.rws_owner_address == '':
             self.get_logger().info('The address of the subscription owner is not specified, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif is_valid_ss58_address(rws_owner_address, valid_ss58_format=32) is not True:
+        elif is_valid_ss58_address(self.rws_owner_address, valid_ss58_format=32) is not True:
             self.get_logger().warn('Given subscription owner address is not correct, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif robonomics_subscription.get_days_left(addr=rws_owner_address) is False:
+        elif self.robonomics_subscription.get_days_left(addr=self.rws_owner_address) is False:
             self.get_logger().warn('No subscription was found for the owner address, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif robonomics_subscription.is_in_sub(rws_owner_address, account_address) is False:
+        elif self.robonomics_subscription.is_in_sub(self.rws_owner_address, account_address) is False:
             self.get_logger().warn('Account not added to the specified subscription, '
                                    'transactions will be performed as usual')
             rws_status = False
@@ -112,20 +108,17 @@ class RobonomicsROS2PubSub(Node):
             rws_status = True
 
         if rws_status is True:
-            self.datalog = Datalog(self.account, rws_sub_owner=rws_owner_address)
-            self.launch = Launch(self.account, rws_sub_owner=rws_owner_address)
-            self.rws_users_list = robonomics_subscription.get_devices(rws_owner_address)
-            self.get_logger().info('Found users in Robonomics subscription: %s' % str(self.rws_users_list))
+            self.datalog = Datalog(self.account, rws_sub_owner=self.rws_owner_address)
+            self.launch = Launch(self.account, rws_sub_owner=self.rws_owner_address)
+
+            self.srv_get_rws_users = self.create_service(
+                RobonomicsROS2GetRWSUsers,
+                'robonomics/get_rws_users',
+                self.get_rws_users_callback
+            )
         else:
             self.datalog = Datalog(self.account)
             self.launch = Launch(self.account)
-
-        # Set RWS users list parameter
-        rws_users_list_param = Parameter(
-            'rws_users_list',
-            rclpy.Parameter.Type.STRING_ARRAY,
-            self.rws_users_list)
-        self.set_parameters([rws_users_list_param])
 
         # Checking IPFS daemon
         try:
@@ -345,6 +338,20 @@ class RobonomicsROS2PubSub(Node):
 
         except Exception as e:
             self.get_logger().error('Launch receiving failed with exception: %s' % str(e))
+
+    def get_rws_users_callback(
+            self,
+            request: RobonomicsROS2GetRWSUsers.Request,
+            response: RobonomicsROS2GetRWSUsers.Response,
+        ) -> RobonomicsROS2GetRWSUsers.Response:
+        """
+        Get all users from RWS subscription
+        :param request: None
+        :param response: RWS users list
+        :return: response
+        """
+        response.rws_users_list = self.robonomics_subscription.get_devices(self.rws_owner_address)
+        return response
 
     def __enter__(self) -> Self:
         """

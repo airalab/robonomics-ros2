@@ -6,7 +6,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rcl_interfaces.srv import GetParameters
 
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
-                                            RobonomicsROS2ReceiveDatalog)
+                                            RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
 
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
 
@@ -36,12 +36,11 @@ class BasicRobonomicsHandler(Node):
 
         # Make request to get pubsub parameters with IPFS path and RWS user list
         request = GetParameters.Request()
-        request.names = ['ipfs_dir_path', 'rws_users_list']
+        request.names = ['ipfs_dir_path']
         future = self.get_pubsub_parameter_client.call_async(request)
         rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
         # has not yet created an executor
         self.ipfs_dir_path = future.result().values[0].string_value
-        self.rws_users_list = future.result().values[1].string_array_value
 
         # Create client for sending datalog
         self.send_datalog_client = self.create_client(
@@ -75,6 +74,13 @@ class BasicRobonomicsHandler(Node):
             'robonomics/launch_file_name',
             self.launch_file_subscriber_callback,
             10,
+        )
+
+        # Create client for getting RWS users
+        self.get_rws_users_client = self.create_client(
+            RobonomicsROS2GetRWSUsers,
+            'robonomics/get_rws_users',
+            callback_group=sender_callback_group
         )
 
     def send_datalog_request(self,
@@ -160,6 +166,19 @@ class BasicRobonomicsHandler(Node):
         launch_sender_address = msg.launch_sender_address
         self.get_logger().info('Got launch from: %s' % launch_sender_address)
         self.param_file_name = msg.param_file_name
+
+    def get_rws_users_request(self) -> [str]:
+        """
+        Request function to get all users from RWS subscription
+        :return: List with RWS users addresses
+        """
+        request = RobonomicsROS2GetRWSUsers.Request()
+
+        # Making a request and wait for its execution
+        future = self.get_rws_users_client.call_async(request)
+        self.executor.spin_until_future_complete(future)
+
+        return future.result().rws_users_list
 
     def __enter__(self) -> Self:
         """

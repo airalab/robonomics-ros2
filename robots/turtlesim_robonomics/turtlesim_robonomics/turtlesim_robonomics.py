@@ -72,7 +72,9 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         file.write(json_object)
         file.close()
 
-        self.send_datalog_request(self.pose_file_name, encrypt_recipient_addresses=self.rws_users_list)
+        rws_users_list = self.get_rws_users_request()
+
+        self.send_datalog_request(self.pose_file_name, encrypt_recipient_addresses=rws_users_list)
 
     def publish_to_cmd_vel(self) -> None:
         """
