@@ -206,8 +206,8 @@ class RobonomicsROS2PubSub(Node):
 
             # Check if encryption is needed
             if request.encrypt_recipient_addresses:
-                self.get_logger().info('Encrypting file for specified addresses')
-                file_path = encrypt_file(file_path, self.account, request.encrypt_recipient_addresses)
+                [file_path, status] = encrypt_file(file_path, self.account, request.encrypt_recipient_addresses)
+                self.get_logger().info('Encrypting file for target address is finished with status: %s' % status)
 
             # Upload file to IPFS
             datalog_cid = ipfs_upload(file_path)
@@ -238,8 +238,8 @@ class RobonomicsROS2PubSub(Node):
 
                 # Check if encryption is needed and recipient address is valid
                 if request.encrypt_status is True:
-                    self.get_logger().info('Encrypting file for target address')
-                    file_path = encrypt_file(file_path, self.account, [request.target_address])
+                    [file_path, status] = encrypt_file(file_path, self.account, [request.target_address])
+                    self.get_logger().info('Encrypting file for target address is finished with status: %s' % status)
 
                 # Upload file to IPFS
                 param_cid = ipfs_upload(file_path)
@@ -247,7 +247,7 @@ class RobonomicsROS2PubSub(Node):
                 self.get_logger().info('Sending launch to %s with parameter: %s' % (request.target_address, param_cid))
                 response.launch_hash = self.launch.launch(request.target_address, param_cid)
             else:
-                raise ValueError("Invalid target address")
+                raise ValueError('Invalid target address')
 
         except Exception as e:
             response.launch_hash = ''
