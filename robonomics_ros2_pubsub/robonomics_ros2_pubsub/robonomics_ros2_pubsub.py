@@ -4,6 +4,7 @@ import os
 
 import ipfshttpclient2
 import ipfs_api
+from pinatapy import PinataPy
 
 import rclpy
 from rclpy.node import Node
@@ -57,6 +58,8 @@ class RobonomicsROS2PubSub(Node):
         self.account_type = pubsub_params_dict['crypto_type']
         self.rws_owner_address = pubsub_params_dict['rws_owner_address']
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
+        pinata_api_key = pubsub_params_dict['pinata_api_key']
+        pinata_api_secret_key = pubsub_params_dict['pinata_api_secret_key']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -143,6 +146,15 @@ class RobonomicsROS2PubSub(Node):
             self.ipfs_dir_path)
         self.set_parameters([ipfs_dir_path_param])
 
+        # Set Pinata API if keys
+        self.pinata_api = None
+        try:
+            if pinata_api_key != '' and pinata_api_secret_key != '':
+                self.pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
+                self.get_logger().info('Pinning IPFS files to Pinata is activated')
+        except Exception as e:
+            self.get_logger().error('Pinata API keys are incorrect: %s' % e)
+
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
 
@@ -205,6 +217,10 @@ class RobonomicsROS2PubSub(Node):
             # Upload file to IPFS
             datalog_cid = ipfs_upload(file_path)
 
+            # Upload to Pinata
+            if self.pinata_api is not None:
+                self.pinata_api.pin_file_to_ipfs(file_path, save_absolute_paths=False)
+
             self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
             response.datalog_hash = self.datalog.record(datalog_cid)
 
@@ -236,6 +252,10 @@ class RobonomicsROS2PubSub(Node):
 
                 # Upload file to IPFS
                 param_cid = ipfs_upload(file_path)
+
+                # Upload to Pinata
+                if self.pinata_api is not None:
+                    self.pinata_api.pin_file_to_ipfs(file_path, save_absolute_paths=False)
 
                 self.get_logger().info('Sending launch to %s with parameter: %s' % (request.target_address, param_cid))
                 response.launch_hash = self.launch.launch(request.target_address, param_cid)
