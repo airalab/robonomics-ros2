@@ -38,8 +38,8 @@ class BasicRobonomicsHandler(Node):
         request = GetParameters.Request()
         request.names = ['ipfs_dir_path']
         future = self.get_pubsub_parameter_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
-        # has not yet created an executor
+        while future.result() is None:
+            pass
         self.ipfs_dir_path = future.result().values[0].string_value
 
         # Create client for sending datalog
@@ -101,7 +101,9 @@ class BasicRobonomicsHandler(Node):
 
         # Making a request and wait for its execution
         future = self.send_datalog_client.call_async(request)
-        self.executor.spin_until_future_complete(future)
+
+        while future.result() is None:
+            pass
 
         datalog_hash = str(future.result().datalog_hash)
         return datalog_hash
@@ -127,7 +129,9 @@ class BasicRobonomicsHandler(Node):
 
         # Making a request and wait for its execution
         future = self.send_launch_client.call_async(request)
-        self.executor.spin_until_future_complete(future)
+
+        while future.result() is None:
+            pass
 
         launch_hash = str(future.result().launch_hash)
         return launch_hash
@@ -150,7 +154,9 @@ class BasicRobonomicsHandler(Node):
 
         # Making a request and wait for its execution
         future = self.receive_datalog_client.call_async(request)
-        self.executor.spin_until_future_complete(future)
+
+        while future.result() is None:
+            pass
 
         timestamp = float(future.result().timestamp.sec) + float(future.result().timestamp.nanosec) * 10 ** -9
         datalog_content = str(future.result().datalog_content)
@@ -176,7 +182,9 @@ class BasicRobonomicsHandler(Node):
 
         # Making a request and wait for its execution
         future = self.get_rws_users_client.call_async(request)
-        self.executor.spin_until_future_complete(future)
+
+        while future.result() is None:
+            pass
 
         return future.result().rws_users_list
 
