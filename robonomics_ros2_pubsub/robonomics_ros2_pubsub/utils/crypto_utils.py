@@ -36,6 +36,7 @@ def ipfs_download(cid: str, file_path: str, gateway: str) -> None:
             # Define the retry strategy
             retry_strategy = Retry(
                 total=5,
+                backoff_factor=3,
                 status_forcelist=[429, 500, 502, 503, 504],
             )
 
