@@ -34,12 +34,12 @@ class BasicRobonomicsHandler(Node):
         while not self.get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Pubsub parameter service not available, waiting again...')
 
-        # Make request to get pubsub parameters with IPFS path and RWS user list
+        # Make request to get pubsub parameters with IPFS path
         request = GetParameters.Request()
         request.names = ['ipfs_dir_path']
         future = self.get_pubsub_parameter_client.call_async(request)
-        while future.result() is None:
-            pass
+        rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
+        # has not yet created an executor
         self.ipfs_dir_path = future.result().values[0].string_value
 
         # Create client for sending datalog
