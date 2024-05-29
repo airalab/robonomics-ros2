@@ -1,6 +1,7 @@
 from robonomicsinterface import Account
 
 import typing
+import requests
 import json
 import os
 import ipfs_api
@@ -19,14 +20,23 @@ def ipfs_upload(file_path: str) -> str:
     return cid
 
 
-def ipfs_download(cid: str, file_path: str) -> None:
+def ipfs_download(cid: str, file_path: str, gateway: str) -> None:
     """
     Function for download files from IPFS
     :param cid: File CID
     :param file_path: Full path for saving file
+    :param gateway: IPFS gateway to download file
     :return: None
     """
-    ipfs_api.download(cid, file_path)
+    if gateway != '':
+        url = gateway + '/' + cid
+        try:
+            response = requests.get(url, allow_redirects=True)
+            open(file_path, 'wb').write(response.content)
+        except Exception as e:
+            ipfs_api.download(cid, file_path)
+    else:
+        ipfs_api.download(cid, file_path)
 
 
 def encrypt_data(data: typing.Union[bytes, str],

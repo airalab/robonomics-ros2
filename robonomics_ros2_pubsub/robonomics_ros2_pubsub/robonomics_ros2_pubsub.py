@@ -60,6 +60,7 @@ class RobonomicsROS2PubSub(Node):
         self.ipfs_dir_path = pubsub_params_dict['ipfs_dir_path']
         pinata_api_key = pubsub_params_dict['pinata_api_key']
         pinata_api_secret_key = pubsub_params_dict['pinata_api_secret_key']
+        self.ipfs_gateway = pubsub_params_dict['ipfs_gateway']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -297,7 +298,7 @@ class RobonomicsROS2PubSub(Node):
                         file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
 
                     # Download from IPFS
-                    ipfs_download(cid=datalog_content, file_path=file_path)
+                    ipfs_download(cid=datalog_content, file_path=file_path, gateway=self.ipfs_gateway)
 
                     # Decrypt file if it is needed
                     [file_path, decrypt_status] = decrypt_file(file_path, self.account, request.sender_address)
@@ -342,7 +343,7 @@ class RobonomicsROS2PubSub(Node):
             file_path = str(os.path.join(self.ipfs_dir_path, ipfs_hash))
 
             # Download from IPFS
-            ipfs_download(cid=ipfs_hash, file_path=file_path)
+            ipfs_download(cid=ipfs_hash, file_path=file_path, gateway=self.ipfs_gateway)
 
             # Decrypt file if it is needed
             [file_path, decrypt_status] = decrypt_file(file_path, self.account, launch_sender_address)

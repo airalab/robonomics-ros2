@@ -18,3 +18,6 @@ pinata_api_key:           ''
 
 # Secret API key from Pinata pinning service for IPFS
 pinata_api_secret_key:    ''
+
+# IPFS gateway to download files
+ipfs_gateway:             ''
