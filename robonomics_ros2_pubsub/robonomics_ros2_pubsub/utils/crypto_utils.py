@@ -2,6 +2,8 @@ from robonomicsinterface import Account
 
 import typing
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 import json
 import os
 import ipfs_api
@@ -31,7 +33,22 @@ def ipfs_download(cid: str, file_path: str, gateway: str) -> None:
     if gateway != '':
         url = gateway + '/' + cid
         try:
-            response = requests.get(url, allow_redirects=True)
+            # Define the retry strategy
+            retry_strategy = Retry(
+                total=5,
+                status_forcelist=[429, 500, 502, 503, 504],
+            )
+
+            # Create an HTTP adapter with the retry strategy and mount it to session
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+
+            # Create a new session object
+            session = requests.Session()
+            session.mount('http://', adapter)
+            session.mount('https://', adapter)
+
+            response = session.get(url, allow_redirects=True)
+
             open(file_path, 'wb').write(response.content)
         except Exception as e:
             ipfs_api.download(cid, file_path)
