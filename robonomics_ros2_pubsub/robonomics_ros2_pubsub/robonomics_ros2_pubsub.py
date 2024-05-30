@@ -298,7 +298,7 @@ class RobonomicsROS2PubSub(Node):
                         file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
 
                     # Download from IPFS
-                    ipfs_download(cid=datalog_content, file_path=file_path, gateway=self.ipfs_gateway)
+                    ipfs_download(ros2_node=self, cid=datalog_content, file_path=file_path, gateway=self.ipfs_gateway)
 
                     # Decrypt file if it is needed
                     [file_path, decrypt_status] = decrypt_file(file_path, self.account, request.sender_address)
@@ -343,7 +343,7 @@ class RobonomicsROS2PubSub(Node):
             file_path = str(os.path.join(self.ipfs_dir_path, ipfs_hash))
 
             # Download from IPFS
-            ipfs_download(cid=ipfs_hash, file_path=file_path, gateway=self.ipfs_gateway)
+            ipfs_download(ros2_node=self, cid=ipfs_hash, file_path=file_path, gateway=self.ipfs_gateway)
 
             # Decrypt file if it is needed
             [file_path, decrypt_status] = decrypt_file(file_path, self.account, launch_sender_address)

@@ -7,6 +7,7 @@ from urllib3.util import Retry
 import json
 import os
 import ipfs_api
+from rclpy.node import Node
 
 from substrateinterface import Keypair, KeypairType
 from scalecodec.utils.ss58 import ss58_decode
@@ -22,20 +23,23 @@ def ipfs_upload(file_path: str) -> str:
     return cid
 
 
-def ipfs_download(cid: str, file_path: str, gateway: str) -> None:
+def ipfs_download(ros2_node: Node, cid: str, file_path: str, gateway: str) -> None:
     """
     Function for download files from IPFS
+    :param ros2_node: Node object for sending logs
     :param cid: File CID
     :param file_path: Full path for saving file
     :param gateway: IPFS gateway to download file
     :return: None
     """
     if gateway != '':
+        ros2_node.get_logger().info('Found IPFS gateway, will try to use it for downloading')
         url = gateway + '/' + cid
+        retry_num: int = 5
         try:
             # Define the retry strategy
             retry_strategy = Retry(
-                total=5,
+                total=retry_num,
                 backoff_factor=3,
                 status_forcelist=[429, 500, 502, 503, 504],
             )
@@ -51,10 +55,17 @@ def ipfs_download(cid: str, file_path: str, gateway: str) -> None:
             response = session.get(url, allow_redirects=True)
 
             open(file_path, 'wb').write(response.content)
+
+            return
+
         except Exception as e:
-            ipfs_api.download(cid, file_path)
-    else:
-        ipfs_api.download(cid, file_path)
+            ros2_node.get_logger().error(
+                'Gateway is not available after %i retries with error: %s' % (retry_num, str(e))
+            )
+
+    ros2_node.get_logger().info('Will try to use local IPFS node for downloading')
+    ipfs_api.download(cid, file_path)
+    return
 
 
 def encrypt_data(data: typing.Union[bytes, str],
