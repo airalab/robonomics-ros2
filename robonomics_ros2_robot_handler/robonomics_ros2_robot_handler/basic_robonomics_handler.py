@@ -48,8 +48,6 @@ class BasicRobonomicsHandler(Node):
             'robonomics/send_datalog',
             callback_group=sender_callback_group,
         )
-        while not self.send_datalog_client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().warn('Send datalog service not available, waiting again...')
 
         # Create client for sending launch
         self.send_launch_client = self.create_client(
@@ -57,16 +55,12 @@ class BasicRobonomicsHandler(Node):
             'robonomics/send_launch',
             callback_group=sender_callback_group,
         )
-        while not self.send_launch_client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().warn('Send launch service not available, waiting again...')
 
         # Crete client for receiving datalog
         self.receive_datalog_client = self.create_client(
             RobonomicsROS2ReceiveDatalog,
             'robonomics/receive_datalog',
         )
-        while not self.receive_datalog_client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().warn('Receive datalog service not available, waiting again...')
 
         # Create subscriber for launch
         self.launch_file_subscriber = self.create_subscription(
@@ -93,6 +87,9 @@ class BasicRobonomicsHandler(Node):
         :param  encrypt_recipient_addresses: Addresses for file encryption, if empty, encryption will not be performed
         :return: Hash of the datalog transaction
         """
+        # Wait for service
+        while not self.send_datalog_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Send datalog service not available, waiting again...')
 
         # Preparing a request
         request = RobonomicsROS2SendDatalog.Request()
@@ -120,6 +117,9 @@ class BasicRobonomicsHandler(Node):
         :param encrypt_status: Check if the parameter file needs to be encrypted with a target address, default is True
         :return: hash of the launch transaction
         """
+        # Wait for service
+        while not self.send_launch_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Send launch service not available, waiting again...')
 
         # Preparing a request
         request = RobonomicsROS2SendLaunch.Request()
@@ -146,6 +146,9 @@ class BasicRobonomicsHandler(Node):
         :param datalog_file_name: name for IPFS file, default will be IPFS hash
         :return: timestamp of datalog in sec and string or file name, downloaded from IPFS
         """
+        # Wait for service
+        while not self.receive_datalog_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Receive datalog service not available, waiting again...')
 
         # Preparing a request
         request = RobonomicsROS2ReceiveDatalog.Request()
@@ -170,7 +173,6 @@ class BasicRobonomicsHandler(Node):
         :return: None
         """
         launch_sender_address = msg.launch_sender_address
-        self.get_logger().info('Got launch from: %s' % launch_sender_address)
         self.param_file_name = msg.param_file_name
 
     def get_rws_users_request(self) -> [str]:
@@ -178,6 +180,9 @@ class BasicRobonomicsHandler(Node):
         Request function to get all users from RWS subscription
         :return: List with RWS users addresses
         """
+        while not self.get_rws_users_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Get RWS users not available, waiting again...')
+
         request = RobonomicsROS2GetRWSUsers.Request()
 
         # Making a request and wait for its execution
