@@ -2,7 +2,7 @@ from typing_extensions import Self, Any, List, Optional
 
 import rclpy
 from rclpy.node import Node
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rcl_interfaces.srv import GetParameters
 
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
@@ -22,25 +22,18 @@ class BasicRobonomicsHandler(Node):
         )
 
         sender_callback_group = MutuallyExclusiveCallbackGroup()
+        param_callback_group = ReentrantCallbackGroup()
 
         # File name for launch parameter
-        self.param_file_name = ''
+        self.param_file_name: str = ''
+        self.ipfs_dir_path: str = ''
 
         # Service for getting parameters from pubsub
         self.get_pubsub_parameter_client = self.create_client(
             GetParameters,
-            'robonomics_ros2_pubsub/get_parameters'
+            'robonomics_ros2_pubsub/get_parameters',
+            callback_group=param_callback_group,
         )
-        while not self.get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().warn('Pubsub parameter service not available, waiting again...')
-
-        # Make request to get pubsub parameters with IPFS path
-        request = GetParameters.Request()
-        request.names = ['ipfs_dir_path']
-        future = self.get_pubsub_parameter_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)  # rclpy instead of self.executor, because constructor
-        # has not yet created an executor
-        self.ipfs_dir_path = future.result().values[0].string_value
 
         # Create client for sending datalog
         self.send_datalog_client = self.create_client(
@@ -75,6 +68,13 @@ class BasicRobonomicsHandler(Node):
             RobonomicsROS2GetRWSUsers,
             'robonomics/get_rws_users',
             callback_group=sender_callback_group
+        )
+
+        # Create timer to get IPFS dir from pubsub parameters
+        self.timer_get_pubsub_params = self.create_timer(
+            timer_period_sec=0.01,
+            callback=self.timer_get_pubsub_params_callback,
+            callback_group=param_callback_group
         )
 
     def send_datalog_request(self,
@@ -192,6 +192,24 @@ class BasicRobonomicsHandler(Node):
             pass
 
         return future.result().rws_users_list
+
+    def timer_get_pubsub_params_callback(self) -> None:
+
+        # Just need to get parameters onceS
+        self.timer_get_pubsub_params.cancel()
+
+        while not self.get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn('Pubsub parameter service not available, waiting again...')
+
+        # Make request to get pubsub parameters with IPFS path
+        request = GetParameters.Request()
+        request.names = ['ipfs_dir_path']
+        future = self.get_pubsub_parameter_client.call_async(request)
+
+        while future.result() is None:
+            pass
+
+        self.ipfs_dir_path = future.result().values[0].string_value
 
     def __enter__(self) -> Self:
         """
