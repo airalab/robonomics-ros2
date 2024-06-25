@@ -2,24 +2,34 @@ from robonomicsinterface import Account
 
 import typing
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util import Retry
 import json
 import os
 import ipfs_api
-from rclpy.node import Node
 
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
+from rclpy.node import Node
+from pinatapy import PinataPy
 from substrateinterface import Keypair, KeypairType
 from scalecodec.utils.ss58 import ss58_decode
 
+from robonomics_ros2_pubsub.utils.exceptions import FileNotEncryptedException
 
-def ipfs_upload(file_path: str) -> str:
+
+def ipfs_upload(file_path: str, pinata_api: PinataPy | None) -> str:
     """
     Function for pushing files to IPFS
     :param file_path: Path to the file
+    :param pinata_api: Pinata API if exist
     :return: cid: CID of file
     """
+    # Upload to IPFS via local node
     cid = ipfs_api.publish(file_path)
+
+    # Upload to Pinata
+    if pinata_api is not None:
+        pinata_api.pin_file_to_ipfs(file_path, save_absolute_paths=False)
+
     return cid
 
 
@@ -111,13 +121,17 @@ def decrypt_data(encrypted_data: str,
     return decrypted_data
 
 
-def encrypt_file(file_path: str, encrypting_account: Account, recipient_addresses: typing.List[str]) -> [str, str]:
+def encrypt_file(ros2_node: Node,
+                 file_path: str,
+                 encrypting_account: Account,
+                 recipient_addresses: typing.List[str]) -> [str, str]:
     """
     Encrypt file with robot private key and recipient addresses
+    :param ros2_node:           Node object for sending logs
     :param file_path:           File to encrypt
     :param encrypting_account:  An account on whose behalf the file is encrypted
     :param recipient_addresses: List with addresses that can open a file
-    :return:                    Encrypted file path and report on encrypt status
+    :return:                    Encrypted file path
     """
     encrypting_keypair: Keypair = encrypting_account.keypair
 
@@ -132,34 +146,29 @@ def encrypt_file(file_path: str, encrypting_account: Account, recipient_addresse
 
     # Create JSON-file with encrypted random private key for each recipient addresses and encrypted_data
     file_path_crypt = file_path.split('.')[0] + '_crypt.json'
-    file_crypt_data = {'encrypted_keys': {}}
+    file_crypt_data = {'encrypted_keys': {}, 'data': encrypted_data}
 
-    with open(file_path_crypt, 'w') as file_crypt:
-        # For each recipient address try to encrypt random account seed
-        success_encrypt_attempts = 0
-        success_encrypt_addresses = []
-        for address in recipient_addresses:
-            try:
-                encrypted_key = encrypt_data(random_seed, encrypting_keypair, address)
-                success_encrypt_addresses.append(address)
-                success_encrypt_attempts += 1
-                file_crypt_data['encrypted_keys'][address] = encrypted_key
-            except Exception as e:
-                pass
-        # Add encrypted data and dump all to JSON file
-        file_crypt_data['data'] = encrypted_data
+    # For each unique recipient address try to encrypt random account seed
+    for address in list(set(recipient_addresses)):
+        try:
+            encrypted_key = encrypt_data(random_seed, encrypting_keypair, address)
+            file_crypt_data['encrypted_keys'][address] = encrypted_key
+        except Exception as e:
+            ros2_node.get_logger().warn('Encryption is failed for address %s with error: %s' % (address, e))
+
+    # Add encrypted data and dump all to JSON file if some encryption is done
+    if file_crypt_data['encrypted_keys'] != {}:
         json_object = json.dumps(file_crypt_data, indent=4)
-        file_crypt.write(json_object)
 
-    if success_encrypt_attempts == len(recipient_addresses):
-        status = 'Encryption is succeed for all addresses: %s' % success_encrypt_addresses
-        return [file_path_crypt, status]
-    elif 0 < success_encrypt_attempts < len(recipient_addresses):
-        status = 'Encryption is done only for some addresses, check types: %s' % success_encrypt_addresses
-        return [file_path_crypt, status]
+        with open(file_path_crypt, 'w') as file_crypt:
+            file_crypt.write(json_object)
+
+        success_encrypted_addresses = list(file_crypt_data['encrypted_keys'].keys())
+        ros2_node.get_logger().info('File encryption is done for addresses: %s' % str(success_encrypted_addresses))
+
+        return file_path_crypt
     else:
-        status = 'Encryption is not done, check addresses types'
-        return [file_path, status]
+        raise FileNotEncryptedException
 
 
 def decrypt_file(file_path: str, decrypting_account: Account, sender_address: str) -> [str, bool]:

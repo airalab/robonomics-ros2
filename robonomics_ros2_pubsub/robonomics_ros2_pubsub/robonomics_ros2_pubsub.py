@@ -1,3 +1,5 @@
+import time
+
 from typing_extensions import Self, Any
 import yaml
 import os
@@ -5,6 +7,7 @@ import os
 import ipfshttpclient2
 import ipfs_api
 from pinatapy import PinataPy
+from requests.exceptions import ConnectionError
 
 import rclpy
 from rclpy.node import Node
@@ -111,6 +114,7 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().info('Robonomics subscription found, transactions will be performed with the RWS module')
             rws_status = True
 
+        # If subscription found, initialize all functions for RWS
         if rws_status is True:
             self.datalog = Datalog(self.account, rws_sub_owner=self.rws_owner_address)
             self.launch = Launch(self.account, rws_sub_owner=self.rws_owner_address)
@@ -124,14 +128,30 @@ class RobonomicsROS2PubSub(Node):
             self.datalog = Datalog(self.account)
             self.launch = Launch(self.account)
 
-        # Checking IPFS daemon
+        # Checking IPFS daemon is running
         try:
             with ipfshttpclient2.connect():
-                self.get_logger().info('IPFS daemon is found')
+                self.get_logger().info("IPFS daemon is found, my IPFS ID is: " + ipfs_api.my_id())
         except ipfshttpclient2.exceptions.ConnectionError:
             self.get_logger().error('IPFS daemon is not found, check if it is working')
             raise SystemExit
-        self.get_logger().info("My IPFS ID is: " + ipfs_api.my_id())
+
+        # Checking Pinata API keys are valid
+        self.pinata_api = None
+        if pinata_api_key != '' and pinata_api_secret_key != '':
+            while True:
+                try:
+                    self.pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
+                    break
+                except ConnectionError:
+                    time.sleep(5)
+                    continue
+
+            if 'status' and 'reason' in self.pinata_api.user_pinned_data_total():
+                self.pinata_api = None
+                self.get_logger().error('Pinata API keys are incorrect')
+            else:
+                self.get_logger().info('Pinning IPFS files to Pinata is activated')
 
         # Checking IPFS directory, if not, use default
         if self.ipfs_dir_path == '' or os.path.isdir(self.ipfs_dir_path) is False:
@@ -146,15 +166,6 @@ class RobonomicsROS2PubSub(Node):
             rclpy.Parameter.Type.STRING,
             self.ipfs_dir_path)
         self.set_parameters([ipfs_dir_path_param])
-
-        # Set Pinata API if keys
-        self.pinata_api = None
-        try:
-            if pinata_api_key != '' and pinata_api_secret_key != '':
-                self.pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
-                self.get_logger().info('Pinning IPFS files to Pinata is activated')
-        except Exception as e:
-            self.get_logger().error('Pinata API keys are incorrect: %s' % e)
 
         # Callback groups for allowing parallel running
         sender_callback_group = MutuallyExclusiveCallbackGroup()
@@ -207,23 +218,20 @@ class RobonomicsROS2PubSub(Node):
         :param response: hash of the datalog transaction
         :return: response
         """
+        self.get_logger().info('Sending new datalog...')
         try:
             file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
 
             # Check if encryption is needed
             if request.encrypt_recipient_addresses:
-                [file_path, status] = encrypt_file(file_path, self.account, request.encrypt_recipient_addresses)
-                self.get_logger().info('Encrypting file for target address is finished with status: %s' % status)
+                file_path = encrypt_file(self, file_path, self.account, request.encrypt_recipient_addresses)
 
-            # Upload file to IPFS
-            datalog_cid = ipfs_upload(file_path)
+            # Upload file to IPFS and Pinata
+            datalog_cid = ipfs_upload(file_path, self.pinata_api)
+            self.get_logger().info('IPFS CID of datalog: %s' % datalog_cid)
 
-            # Upload to Pinata
-            if self.pinata_api is not None:
-                self.pinata_api.pin_file_to_ipfs(file_path, save_absolute_paths=False)
-
-            self.get_logger().info('Sending datalog with IPFS CID: %s' % datalog_cid)
             response.datalog_hash = self.datalog.record(datalog_cid)
+            self.get_logger().info('Datalog is sent with hash: %s' % response.datalog_hash)
 
         except Exception as e:
             response.datalog_hash = ''
@@ -241,25 +249,22 @@ class RobonomicsROS2PubSub(Node):
         :param response: hash of the datalog transaction
         :return: response
         """
+        self.get_logger().info('Sending new launch to %s...' % request.target_address)
         try:
             # Check if target address is valid
             if is_valid_ss58_address(request.target_address, valid_ss58_format=32) is True:
                 file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
 
-                # Check if encryption is needed and recipient address is valid
+                # Check if encryption is needed
                 if request.encrypt_status is True:
-                    [file_path, status] = encrypt_file(file_path, self.account, [request.target_address])
-                    self.get_logger().info('Encrypting file for target address is finished with status: %s' % status)
+                    file_path = encrypt_file(self, file_path, self.account, [request.target_address])
 
-                # Upload file to IPFS
-                param_cid = ipfs_upload(file_path)
+                # Upload file to IPFS and Pinata
+                param_cid = ipfs_upload(file_path, self.pinata_api)
+                self.get_logger().info('IPFS CID of launch param: %s' % param_cid)
 
-                # Upload to Pinata
-                if self.pinata_api is not None:
-                    self.pinata_api.pin_file_to_ipfs(file_path, save_absolute_paths=False)
-
-                self.get_logger().info('Sending launch to %s with parameter: %s' % (request.target_address, param_cid))
                 response.launch_hash = self.launch.launch(request.target_address, param_cid)
+                self.get_logger().info('Launch is sent with hash: %s' % response.launch_hash)
             else:
                 raise ValueError('Invalid target address')
 
