@@ -68,10 +68,10 @@ Available features include:
 * **Launch function** — launching a device to execute any command with a specified set of parameters passed as a file.
 * **Datalog function** — publishing any device data in a form of hash to parachain.
 * **Usage of Robonomics subscription** — the ability to send transactions without a fee.
+* **Secure file storage** — to pack and unpack data, [InterPlanetary File System](https://ipfs.tech/) is used, which allows to access 
+files by their unique hash; for convenient usage of IPFS, [Pinata](https://www.pinata.cloud/) support included, which 
+allows to pin IPFS files for fast downloading.
 * **File encryption and decryption** — protection of files with public key encryption.
-
-To pack and unpack data, [InterPlanetary File System](https://ipfs.tech/) is used, which allows to access files 
-by their unique hash.
 
 To learn more about Robonomics, please refer to the official documentation: 
 [wiki.robonomics.network](https://wiki.robonomics.network/).
@@ -169,15 +169,17 @@ Pay attention to the `account_seed` and `crypto_type` fields, as they determine 
 > **WARNING**: The seed phrase is sensitive information that allows anyone to use your account. Make sure you don't 
 > upload a config file with it to GitHub or anywhere else.
 
+If you want to use a custom Robonomics node or a local one, change the `remote_node_url` parameter.
+
 If you have a Robonomics subscription that allows you to send transactions without fees, please insert the address 
 of the subscription owner to the `rws_owner_address` field. Don't forget that your account must be added 
 to your subscription.
    
 You may also want to change the directory where the files for IPFS will be stored. To do this, change the 
-parameter `ipfs_dir_path`, otherwise it will use the default directory.
+parameter `ipfs_dir_path`, otherwise it will use the default directory.  The `ipfs_gateway` parameter allows you 
+to specify the gateway through which IPFS files will be downloaded.
 
-The fields `crypt_recipient_address` and `crypt_sender_address` are used to specify file encryption and 
-decryption addresses.
+The `pinata_api_key` and `pinata_api_secret_key` parameters are needed to access Pinata API.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -191,10 +193,10 @@ decryption addresses.
     ipfs daemon
     ```
    
-2. Create two configuration files for two instances of Turtlesim and Robonomics pubsub.
+2. Create two configuration files for two pubsub instances, each for a different Turtlesim.
 
 3. Run the ROS 2 launch files for two turtle with different configuration files and namespaces (this is necessary to 
-distinguish between identical nodes for different instances). They will launch all necessary nodes: Turtlesim itself, 
+distinguish between identical nodes). They will launch all necessary nodes: Turtlesim itself, 
 wrapper implementation for Turtlesim and Robonomics pubsub:
 
     ```shell
@@ -296,10 +298,9 @@ the `/robonomics_ros2_robot_handler/launch` directory. This launch file takes tw
 - [x] Add IPFS support
 - [x] Add file encryption
 - [x] Add support for Robonomics subscription
-- [ ] Add support for IPFS pinning service
-- [ ] Add checks for IPFS file availability
+- [x] Add support for IPFS pinning service (Pinata)
+- [x] Add a selection of the IPFS gateway
 - [ ] Add digital twin functionality
-- [ ] Add a selection of the IPFS connection type
 - [ ] Rosbag2 integration?
 
 You can [open issue](https://github.com/Fingerling42/robonomics-ros2/issues) to request a function or ask for bug fix.
@@ -327,14 +328,14 @@ Distributed under the Apache-2.0 License. See `LICENSE.txt` for more information
 <!-- CONTACT -->
 ## Contact
 
-Ivan Berman — [@berman_ivan](https://twitter.com/berman_ivan) — berman@robonomics.network
+Ivan Berman — [@berman_ivan](https://twitter.com/berman_ivan) — fingerling42@proton.me
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* [robonomics-interface docs](https://multi-agent-io.github.io/robonomics-interface/index.html)
+* [robonomics-interface docs](https://airalab.github.io/robonomics-interface)
 * [Best-README-Template](https://github.com/othneildrew/Best-README-Template/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

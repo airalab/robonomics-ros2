@@ -17,6 +17,7 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         super().__init__()
 
         self.pose_file_name = 'turtle_pose.json'
+        self.param_file_name = 'turtle_cmd_vel.json'
 
         # Subscription for turtlesim location data
         self.turtle_pose = Pose()
@@ -71,7 +72,9 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         file.write(json_object)
         file.close()
 
-        self.send_datalog_request(self.pose_file_name, encrypt_status=True)
+        rws_users_list = self.get_rws_users_request()
+
+        self.send_datalog_request(self.pose_file_name, encrypt_recipient_addresses=rws_users_list)
 
     def publish_to_cmd_vel(self) -> None:
         """
