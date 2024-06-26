@@ -144,7 +144,7 @@ https://wiki.robonomics.network/docs/create-account-in-dapp
 
 2. Clone this repo to `src` directory:
     ```shell
-    git clone https://github.com/Fingerling42/robonomics-ros2.git
+    git clone https://github.com/airalab/robonomics-ros2.git
     ```
 
 3. Then you can test the repository with turtlesim package or make your own robot-specific wrapper implementations. 
@@ -303,7 +303,7 @@ the `/robonomics_ros2_robot_handler/launch` directory. This launch file takes tw
 - [ ] Add digital twin functionality
 - [ ] Rosbag2 integration?
 
-You can [open issue](https://github.com/Fingerling42/robonomics-ros2/issues) to request a function or ask for bug fix.
+You can [open issue](https://github.com/airalab/robonomics-ros2/issues) to request a function or ask for bug fix.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -342,13 +342,13 @@ Ivan Berman — [@berman_ivan](https://twitter.com/berman_ivan) — fingerling42
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/Fingerling42/robonomics-ros2.svg?style=for-the-badge
-[contributors-url]: https://github.com/Fingerling42/robonomics-ros2/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Fingerling42/robonomics-ros2.svg?style=for-the-badge
-[forks-url]: https://github.com/Fingerling42/robonomics-ros2/network/members
-[stars-shield]: https://img.shields.io/github/stars/Fingerling42/robonomics-ros2.svg?style=for-the-badge
-[stars-url]: https://github.com/Fingerling42/robonomics-ros2/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Fingerling42/robonomics-ros2.svg?style=for-the-badge
-[issues-url]: https://github.com/Fingerling42/robonomics-ros2/issues
-[license-shield]: https://img.shields.io/github/license/Fingerling42/robonomics-ros2.svg?style=for-the-badge
-[license-url]: https://github.com/Fingerling42/robonomics-ros2/blob/master/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/airalab/robonomics-ros2.svg?style=for-the-badge
+[contributors-url]: https://github.com/airalab/robonomics-ros2/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/airalab/robonomics-ros2.svg?style=for-the-badge
+[forks-url]: https://github.com/airalab/robonomics-ros2/network/members
+[stars-shield]: https://img.shields.io/github/stars/airalab/robonomics-ros2.svg?style=for-the-badge
+[stars-url]: https://github.com/airalab/robonomics-ros2/stargazers
+[issues-shield]: https://img.shields.io/github/issues/airalab/robonomics-ros2.svg?style=for-the-badge
+[issues-url]: https://github.com/airalab/robonomics-ros2/issues
+[license-shield]: https://img.shields.io/github/license/airalab/robonomics-ros2.svg?style=for-the-badge
+[license-url]: https://github.com/airalab/robonomics-ros2/blob/master/LICENSE.txt
