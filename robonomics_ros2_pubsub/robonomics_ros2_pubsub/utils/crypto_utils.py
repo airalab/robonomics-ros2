@@ -5,6 +5,7 @@ import requests
 import json
 import os
 import ipfs_api
+import urllib.parse
 
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -13,7 +14,7 @@ from pinatapy import PinataPy
 from substrateinterface import Keypair, KeypairType
 from scalecodec.utils.ss58 import ss58_decode
 
-from robonomics_ros2_pubsub.utils.exceptions import FileNotEncryptedException
+from robonomics_ros2_pubsub.utils.exceptions import FileNotEncryptedException, AddressNotInDecryptionException
 
 
 def ipfs_upload(file_path: str, pinata_api: PinataPy | None) -> str:
@@ -44,7 +45,7 @@ def ipfs_download(ros2_node: Node, cid: str, file_path: str, gateway: str) -> No
     """
     if gateway != '':
         ros2_node.get_logger().info('Found IPFS gateway, will try to use it for downloading')
-        url = gateway + '/' + cid
+        url: str = urllib.parse.urljoin(gateway, 'ipfs/' + cid)
         retry_num: int = 5
         try:
             # Define the retry strategy
@@ -69,7 +70,7 @@ def ipfs_download(ros2_node: Node, cid: str, file_path: str, gateway: str) -> No
             return
 
         except Exception as e:
-            ros2_node.get_logger().error(
+            ros2_node.get_logger().warn(
                 'Gateway is not available after %i retries with error: %s' % (retry_num, str(e))
             )
 
@@ -171,9 +172,10 @@ def encrypt_file(ros2_node: Node,
         raise FileNotEncryptedException
 
 
-def decrypt_file(file_path: str, decrypting_account: Account, sender_address: str) -> [str, bool]:
+def decrypt_file(ros2_node: Node, file_path: str, decrypting_account: Account, sender_address: str) -> str:
     """
     Decrypt file with robot private key and sender public key
+    :param ros2_node: Node object for sending logs
     :param file_path: File to decrypt
     :param decrypting_account: An account which is going to decrypt file
     :param sender_address: An address that encrypted file
@@ -187,39 +189,36 @@ def decrypt_file(file_path: str, decrypting_account: Account, sender_address: st
             file_crypt_dict = json.loads(file_crypt_data)
         except ValueError:
             # Return same file if it not valid JSON
-            decrypt_status = False
-            return [file_path, decrypt_status]
+            return file_path
 
-        # Check if encryption is needed, if not return same file
-        if 'encrypted_keys' not in file_crypt_dict:
-            decrypt_status = False
-            return [file_path, decrypt_status]
+    # Check if encryption is needed, if not return same file
+    if 'encrypted_keys' not in file_crypt_dict:
+        return file_path
 
-        decrypting_keypair: Keypair = decrypting_account.keypair
-        decrypting_address = decrypting_account.get_address()
+    decrypting_keypair: Keypair = decrypting_account.keypair
+    decrypting_address: str = decrypting_account.get_address()
 
-        if decrypting_address in file_crypt_dict['encrypted_keys']:
-            # Decrypting seed used for data encryption
-            decrypted_random_seed = decrypt_data(file_crypt_dict['encrypted_keys'][decrypting_address],
-                                                 decrypting_keypair,
-                                                 sender_address).decode()
+    if decrypting_address in file_crypt_dict['encrypted_keys']:
+        # Decrypting seed used for data encryption
+        decrypted_random_seed: str = decrypt_data(file_crypt_dict['encrypted_keys'][decrypting_address],
+                                                  decrypting_keypair,
+                                                  sender_address).decode()
 
-            # Decrypting data using decrypted random account
-            decrypted_random_account = Account(decrypted_random_seed, crypto_type=KeypairType.ED25519)
-            decrypted_data = decrypt_data(file_crypt_dict['data'],
-                                          decrypted_random_account.keypair,
-                                          sender_address)
-            # Save data to new file
-            [file_name, file_ext] = os.path.splitext(file_path)
-            file_dir = os.path.dirname(file_path)
-            file_path_decrypt = os.path.join(file_dir,
-                                             "{file_name}_decrypt{file_ext}".format(file_name=file_name,
-                                                                                    file_ext=file_ext))
-            with open(file_path_decrypt, 'wb') as file_decrypt:
-                file_decrypt.write(decrypted_data)
+        # Decrypting data using decrypted random account
+        decrypted_random_account = Account(decrypted_random_seed, crypto_type=KeypairType.ED25519)
+        decrypted_data = decrypt_data(file_crypt_dict['data'],
+                                      decrypted_random_account.keypair,
+                                      sender_address)
+        # Save data to new file
+        [file_name, file_ext] = os.path.splitext(file_path)
+        file_dir = os.path.dirname(file_path)
+        file_path_decrypt = os.path.join(file_dir,
+                                         "{file_name}_decrypt{file_ext}".format(file_name=file_name,
+                                                                                file_ext=file_ext))
+        with open(file_path_decrypt, 'wb') as file_decrypt:
+            file_decrypt.write(decrypted_data)
 
-            decrypt_status = True
-
-            return [file_path_decrypt, decrypt_status]
-        else:
-            raise KeyError("Error in file decryption: account is not in recipient list")
+        ros2_node.get_logger().info('File with datalog is decrypted')
+        return file_path_decrypt
+    else:
+        raise AddressNotInDecryptionException

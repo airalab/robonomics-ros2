@@ -13,7 +13,7 @@ rws_owner_address:        ''
 # Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path in ROS package will be used
 ipfs_dir_path:            ''
 
-# IPFS gateway to download files
+# IPFS gateway to download files, e.g. 'https://ipfs.io'
 ipfs_gateway:             ''
 
 # API key from Pinata pinning service for IPFS
