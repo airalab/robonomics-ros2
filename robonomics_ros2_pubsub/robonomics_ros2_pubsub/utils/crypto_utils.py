@@ -157,7 +157,7 @@ def encrypt_file(ros2_node: Node,
             ros2_node.get_logger().warn('Encryption is failed for address %s with error: %s' % (address, e))
 
     # Add encrypted data and dump all to JSON file if some encryption is done
-    if file_crypt_data['encrypted_keys'] != {}:
+    if file_crypt_data['encrypted_keys']:
         json_object = json.dumps(file_crypt_data, indent=4)
 
         with open(file_path_crypt, 'w') as file_crypt:

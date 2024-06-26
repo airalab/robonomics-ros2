@@ -81,7 +81,7 @@ class RobonomicsROS2PubSub(Node):
 
         # Creating account and show its address
         try:
-            self.account = Account(
+            self.__account = Account(
                 seed=account_seed,
                 remote_ws=remote_node_url,
                 crypto_type=crypto_type)
@@ -89,11 +89,11 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().error("A specified account type is not supported")
             raise SystemExit
 
-        account_address = self.account.get_address()
+        account_address = self.__account.get_address()
         self.get_logger().info('My address is %s' % account_address)
 
         # Checking if subscription exists and actives for initialization of datalog and launch
-        self.robonomics_subscription = RWS(self.account)
+        self.__robonomics_subscription = RWS(self.__account)
         if self.rws_owner_address == '':
             self.get_logger().info('The address of the subscription owner is not specified, '
                                    'transactions will be performed as usual')
@@ -102,11 +102,11 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().warn('Given subscription owner address is not correct, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif self.robonomics_subscription.get_days_left(addr=self.rws_owner_address) is False:
+        elif self.__robonomics_subscription.get_days_left(addr=self.rws_owner_address) is False:
             self.get_logger().warn('No subscription was found for the owner address, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif self.robonomics_subscription.is_in_sub(self.rws_owner_address, account_address) is False:
+        elif self.__robonomics_subscription.is_in_sub(self.rws_owner_address, account_address) is False:
             self.get_logger().warn('Account not added to the specified subscription, '
                                    'transactions will be performed as usual')
             rws_status = False
@@ -116,8 +116,8 @@ class RobonomicsROS2PubSub(Node):
 
         # If subscription found, initialize all functions for RWS
         if rws_status is True:
-            self.datalog = Datalog(self.account, rws_sub_owner=self.rws_owner_address)
-            self.launch = Launch(self.account, rws_sub_owner=self.rws_owner_address)
+            self.__datalog = Datalog(self.__account, rws_sub_owner=self.rws_owner_address)
+            self.__launch = Launch(self.__account, rws_sub_owner=self.rws_owner_address)
 
             self.srv_get_rws_users = self.create_service(
                 RobonomicsROS2GetRWSUsers,
@@ -125,8 +125,8 @@ class RobonomicsROS2PubSub(Node):
                 self.get_rws_users_callback
             )
         else:
-            self.datalog = Datalog(self.account)
-            self.launch = Launch(self.account)
+            self.__datalog = Datalog(self.__account)
+            self.__launch = Launch(self.__account)
 
         # Checking IPFS daemon is running
         try:
@@ -137,18 +137,18 @@ class RobonomicsROS2PubSub(Node):
             raise SystemExit
 
         # Checking Pinata API keys are valid
-        self.pinata_api = None
+        self.__pinata_api = None
         if pinata_api_key != '' and pinata_api_secret_key != '':
             while True:
                 try:
-                    self.pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
+                    self.__pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
                     break
                 except ConnectionError:
                     time.sleep(5)
                     continue
 
-            if 'status' and 'reason' in self.pinata_api.user_pinned_data_total():
-                self.pinata_api = None
+            if 'status' and 'reason' in self.__pinata_api.user_pinned_data_total():
+                self.__pinata_api = None
                 self.get_logger().error('Pinata API keys are incorrect')
             else:
                 self.get_logger().info('Pinning IPFS files to Pinata is activated')
@@ -195,7 +195,7 @@ class RobonomicsROS2PubSub(Node):
 
         # Create subscription of launches for Robonomics node account itself
         self.robonomics_launch_subscriber = Subscriber(
-            self.account,
+            self.__account,
             SubEvent.NewLaunch,
             addr=account_address,
             subscription_handler=self.receive_launch_callback,
@@ -224,13 +224,13 @@ class RobonomicsROS2PubSub(Node):
 
             # Check if encryption is needed
             if request.encrypt_recipient_addresses:
-                file_path = encrypt_file(self, file_path, self.account, request.encrypt_recipient_addresses)
+                file_path = encrypt_file(self, file_path, self.__account, request.encrypt_recipient_addresses)
 
             # Upload file to IPFS and Pinata
-            datalog_cid = ipfs_upload(file_path, self.pinata_api)
+            datalog_cid = ipfs_upload(file_path, self.__pinata_api)
             self.get_logger().info('IPFS CID of datalog: %s' % datalog_cid)
 
-            response.datalog_hash = self.datalog.record(datalog_cid)
+            response.datalog_hash = self.__datalog.record(datalog_cid)
             self.get_logger().info('Datalog is sent with hash: %s' % response.datalog_hash)
 
         except Exception as e:
@@ -257,13 +257,13 @@ class RobonomicsROS2PubSub(Node):
 
                 # Check if encryption is needed
                 if request.encrypt_status is True:
-                    file_path = encrypt_file(self, file_path, self.account, [request.target_address])
+                    file_path = encrypt_file(self, file_path, self.__account, [request.target_address])
 
                 # Upload file to IPFS and Pinata
-                param_cid = ipfs_upload(file_path, self.pinata_api)
+                param_cid = ipfs_upload(file_path, self.__pinata_api)
                 self.get_logger().info('IPFS CID of launch param: %s' % param_cid)
 
-                response.launch_hash = self.launch.launch(request.target_address, param_cid)
+                response.launch_hash = self.__launch.launch(request.target_address, param_cid)
                 self.get_logger().info('Launch is sent with hash: %s' % response.launch_hash)
             else:
                 raise ValueError('Invalid target address')
@@ -287,7 +287,7 @@ class RobonomicsROS2PubSub(Node):
         try:
             # Check if address of datalog sender is valid
             if is_valid_ss58_address(request.sender_address, valid_ss58_format=32) is True:
-                [timestamp, datalog_content] = self.datalog.get_item(request.sender_address)
+                [timestamp, datalog_content] = self.__datalog.get_item(request.sender_address)
                 datalog_content = str(datalog_content)
 
                 # Check if datalog content is IPFS hash
@@ -306,7 +306,7 @@ class RobonomicsROS2PubSub(Node):
                     ipfs_download(ros2_node=self, cid=datalog_content, file_path=file_path, gateway=self.ipfs_gateway)
 
                     # Decrypt file if it is needed
-                    [file_path, decrypt_status] = decrypt_file(file_path, self.account, request.sender_address)
+                    [file_path, decrypt_status] = decrypt_file(file_path, self.__account, request.sender_address)
                     if decrypt_status is True:
                         self.get_logger().info('Datalog file is decrypted')
 
@@ -351,7 +351,7 @@ class RobonomicsROS2PubSub(Node):
             ipfs_download(ros2_node=self, cid=ipfs_hash, file_path=file_path, gateway=self.ipfs_gateway)
 
             # Decrypt file if it is needed
-            [file_path, decrypt_status] = decrypt_file(file_path, self.account, launch_sender_address)
+            [file_path, decrypt_status] = decrypt_file(file_path, self.__account, launch_sender_address)
             if decrypt_status is True:
                 self.get_logger().info('File with launch parameters is decrypted')
 
@@ -368,15 +368,15 @@ class RobonomicsROS2PubSub(Node):
     def get_rws_users_callback(
             self,
             request: RobonomicsROS2GetRWSUsers.Request,
-            response: RobonomicsROS2GetRWSUsers.Response,
-        ) -> RobonomicsROS2GetRWSUsers.Response:
+            response: RobonomicsROS2GetRWSUsers.Response) -> RobonomicsROS2GetRWSUsers.Response:
         """
         Get all users from RWS subscription
         :param request: None
         :param response: RWS users list
         :return: response
         """
-        response.rws_users_list = self.robonomics_subscription.get_devices(self.rws_owner_address)
+        request
+        response.rws_users_list = self.__robonomics_subscription.get_devices(self.rws_owner_address)
         return response
 
     def __enter__(self) -> Self:
