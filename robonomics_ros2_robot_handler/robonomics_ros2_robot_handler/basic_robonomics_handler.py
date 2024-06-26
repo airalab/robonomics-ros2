@@ -1,6 +1,6 @@
-from typing_extensions import Self, Any, List, Optional
+from typing_extensions import Self
+from typing import Any, List, Optional
 
-import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rcl_interfaces.srv import GetParameters
@@ -195,7 +195,7 @@ class BasicRobonomicsHandler(Node):
 
     def timer_get_pubsub_params_callback(self) -> None:
 
-        # Just need to get parameters onceS
+        # Just need to get parameters once
         self.timer_get_pubsub_params.cancel()
 
         while not self.get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):

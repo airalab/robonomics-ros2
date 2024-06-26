@@ -6,3 +6,4 @@ typing_extensions>=4.9.0
 requests>=2.31.0
 urllib3>=1.26.18
 scalecodec>=1.2.8
+pinatapy-vourhey>=0.2.0
