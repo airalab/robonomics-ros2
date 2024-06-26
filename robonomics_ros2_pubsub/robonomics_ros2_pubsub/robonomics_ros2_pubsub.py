@@ -6,8 +6,8 @@ import os
 
 import ipfshttpclient2
 import ipfs_api
+import requests
 from pinatapy import PinataPy
-from requests.exceptions import ConnectionError
 
 import rclpy
 from rclpy.node import Node
@@ -133,25 +133,33 @@ class RobonomicsROS2PubSub(Node):
             with ipfshttpclient2.connect():
                 self.get_logger().info("IPFS daemon is found, my IPFS ID is: " + ipfs_api.my_id())
         except ipfshttpclient2.exceptions.ConnectionError:
-            self.get_logger().error('IPFS daemon is not found, check if it is working')
+            self.get_logger().error('IPFS daemon is not found, shutting down...')
             raise SystemExit
 
-        # Checking Pinata API keys are valid
+        # Checking Pinata connection and API keys
         self.__pinata_api = None
         if pinata_api_key != '' and pinata_api_secret_key != '':
+            # Try to connect to Pinata, retries 10 times if errors occur
+            self.__pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
+            connection_attempts = 0
             while True:
                 try:
-                    self.__pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
+                    if 'status' and 'reason' in self.__pinata_api.user_pinned_data_total():
+                        self.__pinata_api = None
+                        self.get_logger().error('Pinata API keys are incorrect')
+                    else:
+                        self.get_logger().info('Pinning IPFS files to Pinata is activated')
+
                     break
-                except ConnectionError:
+                except requests.exceptions.ConnectionError:
+                    connection_attempts += 1
+
+                    if connection_attempts > 10:
+                        self.get_logger().error('Cannot connect to Pinata after 10 retries, shutting down...')
+                        raise SystemExit
+
                     time.sleep(5)
                     continue
-
-            if 'status' and 'reason' in self.__pinata_api.user_pinned_data_total():
-                self.__pinata_api = None
-                self.get_logger().error('Pinata API keys are incorrect')
-            else:
-                self.get_logger().info('Pinning IPFS files to Pinata is activated')
 
         # Checking IPFS directory, if not, use default
         if self.ipfs_dir_path == '' or os.path.isdir(self.ipfs_dir_path) is False:
