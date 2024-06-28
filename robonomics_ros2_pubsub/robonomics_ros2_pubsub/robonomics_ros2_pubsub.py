@@ -57,12 +57,12 @@ class RobonomicsROS2PubSub(Node):
         # Load all params
         account_seed: str = pubsub_params_dict['account_seed']
         remote_node_url: str = pubsub_params_dict['remote_node_url']
-        self.account_type: str = pubsub_params_dict['crypto_type']
-        self.rws_owner_address: str = pubsub_params_dict['rws_owner_address']
-        self.ipfs_dir_path: str = pubsub_params_dict['ipfs_dir_path']
+        self._account_type: str = pubsub_params_dict['crypto_type']
+        self._rws_owner_address: str = pubsub_params_dict['rws_owner_address']
+        self._ipfs_dir_path: str = pubsub_params_dict['ipfs_dir_path']
         pinata_api_key: str = pubsub_params_dict['pinata_api_key']
         pinata_api_secret_key: str = pubsub_params_dict['pinata_api_secret_key']
-        self.ipfs_gateway: str = pubsub_params_dict['ipfs_gateway']
+        self._ipfs_gateway: str = pubsub_params_dict['ipfs_gateway']
 
         # Check if remote node url is not specified, use default
         if remote_node_url == '':
@@ -70,9 +70,9 @@ class RobonomicsROS2PubSub(Node):
         self.get_logger().info("Connected to Robonomics via: %s" % remote_node_url)
 
         # Checking the type of account
-        if self.account_type == 'ED25519':
+        if self._account_type == 'ED25519':
             crypto_type: int = KeypairType.ED25519
-        elif self.account_type == 'SR25519':
+        elif self._account_type == 'SR25519':
             self.get_logger().warn("An account with Schnorrkel/Ristretto (SR25519) type cannot use file encryption")
             crypto_type: int = KeypairType.SR25519
         else:
@@ -93,19 +93,19 @@ class RobonomicsROS2PubSub(Node):
 
         # Checking if subscription exists and actives for initialization of datalog and launch
         self.__robonomics_subscription = RWS(self.__account)
-        if self.rws_owner_address == '':
+        if self._rws_owner_address == '':
             self.get_logger().info('The address of the subscription owner is not specified, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif is_valid_ss58_address(self.rws_owner_address, valid_ss58_format=32) is not True:
+        elif is_valid_ss58_address(self._rws_owner_address, valid_ss58_format=32) is not True:
             self.get_logger().warn('Given subscription owner address is not correct, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif self.__robonomics_subscription.get_days_left(addr=self.rws_owner_address) is False:
+        elif self.__robonomics_subscription.get_days_left(addr=self._rws_owner_address) is False:
             self.get_logger().warn('No subscription was found for the owner address, '
                                    'transactions will be performed as usual')
             rws_status = False
-        elif self.__robonomics_subscription.is_in_sub(self.rws_owner_address, account_address) is False:
+        elif self.__robonomics_subscription.is_in_sub(self._rws_owner_address, account_address) is False:
             self.get_logger().warn('Account not added to the specified subscription, '
                                    'transactions will be performed as usual')
             rws_status = False
@@ -115,8 +115,8 @@ class RobonomicsROS2PubSub(Node):
 
         # If subscription found, initialize all functions for RWS
         if rws_status is True:
-            self.__datalog = Datalog(self.__account, rws_sub_owner=self.rws_owner_address)
-            self.__launch = Launch(self.__account, rws_sub_owner=self.rws_owner_address)
+            self.__datalog = Datalog(self.__account, rws_sub_owner=self._rws_owner_address)
+            self.__launch = Launch(self.__account, rws_sub_owner=self._rws_owner_address)
 
             self.srv_get_rws_users = self.create_service(
                 RobonomicsROS2GetRWSUsers,
@@ -138,10 +138,11 @@ class RobonomicsROS2PubSub(Node):
         # Checking Pinata connection and API keys
         self.__pinata_api = None
         if pinata_api_key != '' and pinata_api_secret_key != '':
+            self.get_logger().info('Found Pinata API keys, trying to connect...')
             # Try to connect to Pinata, retries 10 times if errors occur
             self.__pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
-            connection_attempts = 0
-            while True:
+
+            for connection_attempt in range(0, 10):
                 try:
                     if 'status' and 'reason' in self.__pinata_api.user_pinned_data_total():
                         self.__pinata_api = None
@@ -151,27 +152,24 @@ class RobonomicsROS2PubSub(Node):
 
                     break
                 except requests.exceptions.ConnectionError:
-                    connection_attempts += 1
-
-                    if connection_attempts > 10:
-                        self.get_logger().error('Cannot connect to Pinata after 10 retries, shutting down...')
-                        raise SystemExit
-
+                    self.get_logger().warn('Cannot connect to Pinata, trying again...')
                     time.sleep(5)
-                    continue
+            else:
+                self.get_logger().error('Cannot connect to Pinata after 10 retries, shutting down...')
+                raise SystemExit
 
         # Checking IPFS directory, if not, use default
-        if self.ipfs_dir_path == '' or os.path.isdir(self.ipfs_dir_path) is False:
-            self.ipfs_dir_path = os.path.join(get_package_share_directory('robonomics_ros2_pubsub'), 'ipfs_files')
+        if self._ipfs_dir_path == '' or os.path.isdir(self._ipfs_dir_path) is False:
+            self._ipfs_dir_path = os.path.join(get_package_share_directory('robonomics_ros2_pubsub'), 'ipfs_files')
         else:
-            self.ipfs_dir_path = os.path.abspath(self.ipfs_dir_path)
-        self.get_logger().info("My IPFS files directory is: " + self.ipfs_dir_path)
+            self._ipfs_dir_path = os.path.abspath(self._ipfs_dir_path)
+        self.get_logger().info("My IPFS files directory is: " + self._ipfs_dir_path)
 
         # Set IPFS path parameter
         ipfs_dir_path_param = Parameter(
             'ipfs_dir_path',
             rclpy.Parameter.Type.STRING,
-            self.ipfs_dir_path)
+            self._ipfs_dir_path)
         self.set_parameters([ipfs_dir_path_param])
 
         # Callback groups for allowing parallel running
@@ -215,6 +213,26 @@ class RobonomicsROS2PubSub(Node):
             10
         )
 
+    @property
+    def account_type(self) -> str:
+        """Get account type"""
+        return self._account_type
+
+    @property
+    def rws_owner_address(self) -> str:
+        """Get RWS owner address"""
+        return self._rws_owner_address
+
+    @property
+    def ipfs_dir_path(self) -> str:
+        """Get IPFS directory path"""
+        return self._ipfs_dir_path
+
+    @property
+    def ipfs_gateway(self) -> str:
+        """Get IPFS gateway URL"""
+        return self._ipfs_gateway
+
     def send_datalog_callback(self,
                               request: RobonomicsROS2SendDatalog.Request,
                               response: RobonomicsROS2SendDatalog.Response
@@ -227,7 +245,7 @@ class RobonomicsROS2PubSub(Node):
         """
         self.get_logger().warn('Sending new datalog...')
         try:
-            file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
+            file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_file_name))
 
             # Check if encryption is needed
             if request.encrypt_recipient_addresses:
@@ -260,7 +278,7 @@ class RobonomicsROS2PubSub(Node):
         try:
             # Check if target address is valid
             if is_valid_ss58_address(request.target_address, valid_ss58_format=32) is True:
-                file_path = str(os.path.join(self.ipfs_dir_path, request.param_file_name))
+                file_path = str(os.path.join(self._ipfs_dir_path, request.param_file_name))
 
                 # Check if encryption is needed
                 if request.encrypt_status is True:
@@ -304,12 +322,12 @@ class RobonomicsROS2PubSub(Node):
 
                     # Check if datalog file name is set, if not then use IPFS hash as a name
                     if request.datalog_file_name == '':
-                        file_path = str(os.path.join(self.ipfs_dir_path, datalog_content))
+                        file_path = str(os.path.join(self._ipfs_dir_path, datalog_content))
                     else:
-                        file_path = str(os.path.join(self.ipfs_dir_path, request.datalog_file_name))
+                        file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_file_name))
 
                     # Download from IPFS
-                    ipfs_download(ros2_node=self, cid=datalog_content, file_path=file_path, gateway=self.ipfs_gateway)
+                    ipfs_download(ros2_node=self, cid=datalog_content, file_path=file_path, gateway=self._ipfs_gateway)
 
                     # Decrypt file if it is needed
                     file_path = decrypt_file(self, file_path, self.__account, request.sender_address)
@@ -350,10 +368,10 @@ class RobonomicsROS2PubSub(Node):
             ipfs_hash = ipfs_32_bytes_to_qm_hash(launch_param)
             self.get_logger().info("IPFS CID in launch param: %s" % ipfs_hash)
 
-            file_path = str(os.path.join(self.ipfs_dir_path, ipfs_hash))
+            file_path = str(os.path.join(self._ipfs_dir_path, ipfs_hash))
 
             # Download from IPFS
-            ipfs_download(ros2_node=self, cid=ipfs_hash, file_path=file_path, gateway=self.ipfs_gateway)
+            ipfs_download(ros2_node=self, cid=ipfs_hash, file_path=file_path, gateway=self._ipfs_gateway)
 
             # Decrypt file if it is needed
             file_path = decrypt_file(self, file_path, self.__account, launch_sender_address)
@@ -380,7 +398,7 @@ class RobonomicsROS2PubSub(Node):
         :return: response
         """
         request
-        response.rws_users_list = self.__robonomics_subscription.get_devices(self.rws_owner_address)
+        response.rws_users_list = self.__robonomics_subscription.get_devices(self._rws_owner_address)
         return response
 
     def __enter__(self) -> Self:
@@ -390,12 +408,12 @@ class RobonomicsROS2PubSub(Node):
         """
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exception_type: Any, exception_value: Any, traceback: Any) -> None:
         """
         Exit the object runtime context
-        :param exc_type: exception that caused the context to be exited
-        :param exc_val: exception value
-        :param exc_tb: exception traceback
+        :param exception_type: exception that caused the context to be exited
+        :param exception_value: exception value
+        :param traceback: exception traceback
         :return: None
         """
         self.robonomics_launch_subscriber.cancel()
