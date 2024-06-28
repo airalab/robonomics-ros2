@@ -43,7 +43,7 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         )
 
     def launch_file_subscriber_callback(self, msg: RobonomicsROS2ReceivedLaunch) -> None:
-        super(TurtlesimRobonomics, self).launch_file_subscriber_callback(msg)
+        super().launch_file_subscriber_callback(msg)
         self.publish_to_cmd_vel()
 
     def subscriber_pose_callback(self, msg: Pose) -> None:

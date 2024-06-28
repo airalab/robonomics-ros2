@@ -218,11 +218,11 @@ class BasicRobonomicsHandler(Node):
         """
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exception_type: Any, exception_value: Any, traceback: Any) -> None:
         """
         Exit the object runtime context
-        :param exc_type: exception that caused the context to be exited
-        :param exc_val: exception value
-        :param exc_tb: exception traceback
+        :param exception_type: exception that caused the context to be exited
+        :param exception_value: exception value
+        :param traceback: exception traceback
         :return: None
         """
