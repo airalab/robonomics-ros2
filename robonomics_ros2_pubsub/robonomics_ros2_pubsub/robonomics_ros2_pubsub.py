@@ -18,8 +18,7 @@ from rclpy.parameter import Parameter
 from rcl_interfaces.msg import ParameterDescriptor
 from ament_index_python.packages import get_package_share_directory
 
-from robonomicsinterface import Account, Datalog, Launch, RWS, Subscriber, SubEvent
-from robonomicsinterface.utils import ipfs_32_bytes_to_qm_hash
+import robonomicsinterface as rbi
 from substrateinterface import KeypairType
 from substrateinterface.utils.ss58 import is_valid_ss58_address
 
@@ -81,7 +80,7 @@ class RobonomicsROS2PubSub(Node):
 
         # Creating account and show its address
         try:
-            self.__account = Account(
+            self.__account = rbi.Account(
                 seed=account_seed,
                 remote_ws=self._remote_node_url,
                 crypto_type=crypto_type)
@@ -93,7 +92,7 @@ class RobonomicsROS2PubSub(Node):
         self.get_logger().info('My address is %s' % account_address)
 
         # Checking if subscription exists and actives for initialization of datalog and launch
-        self.__robonomics_subscription = RWS(self.__account)
+        self.__robonomics_subscription = rbi.RWS(self.__account)
         if self._rws_owner_address == '':
             self.get_logger().info('The address of the subscription owner is not specified, '
                                    'transactions will be performed as usual')
@@ -116,8 +115,8 @@ class RobonomicsROS2PubSub(Node):
 
         # If subscription found, initialize all functions for RWS
         if rws_status is True:
-            self.__datalog = Datalog(self.__account, rws_sub_owner=self._rws_owner_address)
-            self.__launch = Launch(self.__account, rws_sub_owner=self._rws_owner_address)
+            self.__datalog = rbi.Datalog(self.__account, rws_sub_owner=self._rws_owner_address)
+            self.__launch = rbi.Launch(self.__account, rws_sub_owner=self._rws_owner_address)
 
             self._srv_get_rws_users = self.create_service(
                 RobonomicsROS2GetRWSUsers,
@@ -125,8 +124,8 @@ class RobonomicsROS2PubSub(Node):
                 self.get_rws_users_callback
             )
         else:
-            self.__datalog = Datalog(self.__account)
-            self.__launch = Launch(self.__account)
+            self.__datalog = rbi.Datalog(self.__account)
+            self.__launch = rbi.Launch(self.__account)
 
         # Checking IPFS daemon is running
         try:
@@ -200,9 +199,9 @@ class RobonomicsROS2PubSub(Node):
         )
 
         # Create subscription of launches for Robonomics node account itself
-        self._robonomics_launch_subscriber = Subscriber(
+        self._robonomics_launch_subscriber = rbi.Subscriber(
             self.__account,
-            SubEvent.NewLaunch,
+            rbi.SubEvent.NewLaunch,
             addr=account_address,
             subscription_handler=self.receive_launch_callback,
         )
@@ -371,7 +370,7 @@ class RobonomicsROS2PubSub(Node):
 
         try:
             # Only IPFS hashes are permitted to use in launch parameters
-            ipfs_hash = ipfs_32_bytes_to_qm_hash(launch_param)
+            ipfs_hash = rbi.utils.ipfs_32_bytes_to_qm_hash(launch_param)
             self.get_logger().info("IPFS CID in launch param: %s" % ipfs_hash)
 
             file_path = str(os.path.join(self._ipfs_dir_path, ipfs_hash))
