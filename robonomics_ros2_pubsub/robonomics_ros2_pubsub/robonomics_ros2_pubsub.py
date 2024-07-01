@@ -27,6 +27,7 @@ from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, Robonomic
                                             RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
 from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file
+from robonomics_ros2_pubsub.utils.ros2_utils import log_process_start, log_process_end
 
 
 class RobonomicsROS2PubSub(Node):
@@ -56,7 +57,7 @@ class RobonomicsROS2PubSub(Node):
 
         # Load all params
         account_seed: str = pubsub_params_dict['account_seed']
-        remote_node_url: str = pubsub_params_dict['remote_node_url']
+        self._remote_node_url: str = pubsub_params_dict['remote_node_url']
         self._account_type: str = pubsub_params_dict['crypto_type']
         self._rws_owner_address: str = pubsub_params_dict['rws_owner_address']
         self._ipfs_dir_path: str = pubsub_params_dict['ipfs_dir_path']
@@ -65,9 +66,9 @@ class RobonomicsROS2PubSub(Node):
         self._ipfs_gateway: str = pubsub_params_dict['ipfs_gateway']
 
         # Check if remote node url is not specified, use default
-        if remote_node_url == '':
-            remote_node_url = 'wss://kusama.rpc.robonomics.network'
-        self.get_logger().info("Connected to Robonomics via: %s" % remote_node_url)
+        if self._remote_node_url == '':
+            self._remote_node_url = 'wss://kusama.rpc.robonomics.network'
+        self.get_logger().info("Connected to Robonomics via: %s" % self._remote_node_url)
 
         # Checking the type of account
         if self._account_type == 'ED25519':
@@ -82,7 +83,7 @@ class RobonomicsROS2PubSub(Node):
         try:
             self.__account = Account(
                 seed=account_seed,
-                remote_ws=remote_node_url,
+                remote_ws=self._remote_node_url,
                 crypto_type=crypto_type)
         except ValueError:
             self.get_logger().error("A specified account type is not supported")
@@ -118,7 +119,7 @@ class RobonomicsROS2PubSub(Node):
             self.__datalog = Datalog(self.__account, rws_sub_owner=self._rws_owner_address)
             self.__launch = Launch(self.__account, rws_sub_owner=self._rws_owner_address)
 
-            self.srv_get_rws_users = self.create_service(
+            self._srv_get_rws_users = self.create_service(
                 RobonomicsROS2GetRWSUsers,
                 'robonomics/get_rws_users',
                 self.get_rws_users_callback
@@ -176,7 +177,7 @@ class RobonomicsROS2PubSub(Node):
         sender_callback_group = MutuallyExclusiveCallbackGroup()
 
         # Create service for sending datalog
-        self.srv_send_datalog = self.create_service(
+        self._srv_send_datalog = self.create_service(
             RobonomicsROS2SendDatalog,
             'robonomics/send_datalog',
             self.send_datalog_callback,
@@ -184,7 +185,7 @@ class RobonomicsROS2PubSub(Node):
         )
 
         # Create service for sending launch
-        self.srv_send_launch = self.create_service(
+        self._srv_send_launch = self.create_service(
             RobonomicsROS2SendLaunch,
             'robonomics/send_launch',
             self.send_launch_callback,
@@ -192,14 +193,14 @@ class RobonomicsROS2PubSub(Node):
         )
 
         # Create service for receiving datalog from specified address
-        self.srv_receive_datalog = self.create_service(
+        self._srv_receive_datalog = self.create_service(
             RobonomicsROS2ReceiveDatalog,
             'robonomics/receive_datalog',
             self.receive_datalog_callback,
         )
 
         # Create subscription of launches for Robonomics node account itself
-        self.robonomics_launch_subscriber = Subscriber(
+        self._robonomics_launch_subscriber = Subscriber(
             self.__account,
             SubEvent.NewLaunch,
             addr=account_address,
@@ -207,11 +208,16 @@ class RobonomicsROS2PubSub(Node):
         )
 
         # Publisher of file name of launch parameters
-        self.launch_file_publisher = self.create_publisher(
+        self._launch_file_publisher = self.create_publisher(
             RobonomicsROS2ReceivedLaunch,
             'robonomics/launch_file_name',
             10
         )
+
+    @property
+    def remote_node_url(self) -> str:
+        """Get Robonomics node URL"""
+        return self._remote_node_url
 
     @property
     def account_type(self) -> str:
@@ -243,7 +249,7 @@ class RobonomicsROS2PubSub(Node):
         :param response: hash of the datalog transaction
         :return: response
         """
-        self.get_logger().warn('Sending new datalog...')
+        log_process_start(self, 'Sending new datalog...')
         try:
             file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_file_name))
 
@@ -256,7 +262,7 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().info('IPFS CID of datalog: %s' % datalog_cid)
 
             response.datalog_hash = self.__datalog.record(datalog_cid)
-            self.get_logger().info('Datalog is sent with hash: %s' % response.datalog_hash)
+            log_process_end(self, 'Datalog is sent with hash: %s' % response.datalog_hash)
 
         except Exception as e:
             response.datalog_hash = ''
@@ -274,7 +280,7 @@ class RobonomicsROS2PubSub(Node):
         :param response: hash of the datalog transaction
         :return: response
         """
-        self.get_logger().warn('Sending new launch to %s...' % request.target_address)
+        log_process_start(self, 'Sending new launch to %s...' % request.target_address)
         try:
             # Check if target address is valid
             if is_valid_ss58_address(request.target_address, valid_ss58_format=32) is True:
@@ -289,7 +295,7 @@ class RobonomicsROS2PubSub(Node):
                 self.get_logger().info('IPFS CID of launch param: %s' % param_cid)
 
                 response.launch_hash = self.__launch.launch(request.target_address, param_cid)
-                self.get_logger().info('Launch is sent with hash: %s' % response.launch_hash)
+                log_process_end(self, 'Launch is sent with hash: %s' % response.launch_hash)
             else:
                 raise ValueError('Invalid target address')
 
@@ -309,7 +315,7 @@ class RobonomicsROS2PubSub(Node):
         :param response: timestamp and datalog content
         :return: response
         """
-        self.get_logger().warn('Receiving new datalog from %s...' % request.sender_address)
+        log_process_start(self, 'Receiving new datalog from %s...' % request.sender_address)
         try:
             # Check if address of datalog sender is valid
             if is_valid_ss58_address(request.sender_address, valid_ss58_format=32) is True:
@@ -332,7 +338,7 @@ class RobonomicsROS2PubSub(Node):
                     # Decrypt file if it is needed
                     file_path = decrypt_file(self, file_path, self.__account, request.sender_address)
 
-                    self.get_logger().info('Datalog received successfully')
+                    log_process_end(self, 'Datalog received successfully')
                     response.datalog_content = file_path
                 else:
                     response.datalog_content = datalog_content
@@ -361,7 +367,7 @@ class RobonomicsROS2PubSub(Node):
         launch_sender_address: str = launch_raw_data[0]
         launch_param: str = launch_raw_data[2]
 
-        self.get_logger().warn("Getting launch from %s..." % launch_sender_address)
+        log_process_start(self, "Getting launch from %s..." % launch_sender_address)
 
         try:
             # Only IPFS hashes are permitted to use in launch parameters
@@ -381,8 +387,8 @@ class RobonomicsROS2PubSub(Node):
             received_launch_msg.param_file_name = str(os.path.basename(file_path))
             received_launch_msg.launch_sender_address = str(launch_sender_address)
 
-            self.launch_file_publisher.publish(received_launch_msg)
-            self.get_logger().info('Launch file received successfully')
+            self._launch_file_publisher.publish(received_launch_msg)
+            log_process_end(self, 'Launch file received successfully')
 
         except Exception as e:
             self.get_logger().error('Launch receiving failed with exception: %s' % str(e))
@@ -416,7 +422,7 @@ class RobonomicsROS2PubSub(Node):
         :param traceback: exception traceback
         :return: None
         """
-        self.robonomics_launch_subscriber.cancel()
+        self._robonomics_launch_subscriber.cancel()
 
 
 def main(args=None) -> None:
