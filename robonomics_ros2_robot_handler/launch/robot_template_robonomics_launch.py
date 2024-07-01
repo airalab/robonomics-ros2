@@ -35,6 +35,7 @@ def generate_launch_description():
     # your_robot_robonomics = Node(
     #    package='your_robot_robonomics',
     #    executable='your_robot_robonomics',
+    #    emulate_tty=True,
     # )
 
     # Run all nodes with same namespace

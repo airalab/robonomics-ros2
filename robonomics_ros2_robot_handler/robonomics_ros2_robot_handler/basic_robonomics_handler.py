@@ -25,38 +25,38 @@ class BasicRobonomicsHandler(Node):
         param_callback_group = ReentrantCallbackGroup()
 
         # File name for launch parameter
+        self._ipfs_dir_path: str = ''
         self.param_file_name: str = ''
-        self.ipfs_dir_path: str = ''
 
         # Service for getting parameters from pubsub
-        self.get_pubsub_parameter_client = self.create_client(
+        self._get_pubsub_parameter_client = self.create_client(
             GetParameters,
             'robonomics_ros2_pubsub/get_parameters',
             callback_group=param_callback_group,
         )
 
         # Create client for sending datalog
-        self.send_datalog_client = self.create_client(
+        self._send_datalog_client = self.create_client(
             RobonomicsROS2SendDatalog,
             'robonomics/send_datalog',
             callback_group=sender_callback_group,
         )
 
         # Create client for sending launch
-        self.send_launch_client = self.create_client(
+        self._send_launch_client = self.create_client(
             RobonomicsROS2SendLaunch,
             'robonomics/send_launch',
             callback_group=sender_callback_group,
         )
 
         # Crete client for receiving datalog
-        self.receive_datalog_client = self.create_client(
+        self._receive_datalog_client = self.create_client(
             RobonomicsROS2ReceiveDatalog,
             'robonomics/receive_datalog',
         )
 
         # Create subscriber for launch
-        self.launch_file_subscriber = self.create_subscription(
+        self._launch_file_subscriber = self.create_subscription(
             RobonomicsROS2ReceivedLaunch,
             'robonomics/launch_file_name',
             self.launch_file_subscriber_callback,
@@ -64,18 +64,22 @@ class BasicRobonomicsHandler(Node):
         )
 
         # Create client for getting RWS users
-        self.get_rws_users_client = self.create_client(
+        self._get_rws_users_client = self.create_client(
             RobonomicsROS2GetRWSUsers,
             'robonomics/get_rws_users',
             callback_group=sender_callback_group
         )
 
         # Create timer to get IPFS dir from pubsub parameters
-        self.timer_get_pubsub_params = self.create_timer(
+        self._timer_get_pubsub_params = self.create_timer(
             timer_period_sec=0.01,
-            callback=self.timer_get_pubsub_params_callback,
+            callback=self._timer_get_pubsub_params_callback,
             callback_group=param_callback_group
         )
+
+    @property
+    def ipfs_dir_path(self) -> str:
+        return self._ipfs_dir_path
 
     def send_datalog_request(self,
                              datalog_file_name: str,
@@ -88,7 +92,7 @@ class BasicRobonomicsHandler(Node):
         :return: Hash of the datalog transaction
         """
         # Wait for service
-        while not self.send_datalog_client.wait_for_service(timeout_sec=2.0):
+        while not self._send_datalog_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Send datalog service not available, waiting again...')
 
         # Preparing a request
@@ -97,7 +101,7 @@ class BasicRobonomicsHandler(Node):
         request.encrypt_recipient_addresses = encrypt_recipient_addresses
 
         # Making a request and wait for its execution
-        future = self.send_datalog_client.call_async(request)
+        future = self._send_datalog_client.call_async(request)
 
         while future.result() is None:
             pass
@@ -118,7 +122,7 @@ class BasicRobonomicsHandler(Node):
         :return: hash of the launch transaction
         """
         # Wait for service
-        while not self.send_launch_client.wait_for_service(timeout_sec=2.0):
+        while not self._send_launch_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Send launch service not available, waiting again...')
 
         # Preparing a request
@@ -128,7 +132,7 @@ class BasicRobonomicsHandler(Node):
         request.encrypt_status = encrypt_status
 
         # Making a request and wait for its execution
-        future = self.send_launch_client.call_async(request)
+        future = self._send_launch_client.call_async(request)
 
         while future.result() is None:
             pass
@@ -147,7 +151,7 @@ class BasicRobonomicsHandler(Node):
         :return: timestamp of datalog in sec and string or file name, downloaded from IPFS
         """
         # Wait for service
-        while not self.receive_datalog_client.wait_for_service(timeout_sec=2.0):
+        while not self._receive_datalog_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Receive datalog service not available, waiting again...')
 
         # Preparing a request
@@ -156,7 +160,7 @@ class BasicRobonomicsHandler(Node):
         request.datalog_file_name = datalog_file_name
 
         # Making a request and wait for its execution
-        future = self.receive_datalog_client.call_async(request)
+        future = self._receive_datalog_client.call_async(request)
 
         while future.result() is None:
             pass
@@ -180,36 +184,36 @@ class BasicRobonomicsHandler(Node):
         Request function to get all users from RWS subscription
         :return: List with RWS users addresses
         """
-        while not self.get_rws_users_client.wait_for_service(timeout_sec=2.0):
+        while not self._get_rws_users_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Get RWS users not available, waiting again...')
 
         request = RobonomicsROS2GetRWSUsers.Request()
 
         # Making a request and wait for its execution
-        future = self.get_rws_users_client.call_async(request)
+        future = self._get_rws_users_client.call_async(request)
 
         while future.result() is None:
             pass
 
         return future.result().rws_users_list
 
-    def timer_get_pubsub_params_callback(self) -> None:
+    def _timer_get_pubsub_params_callback(self) -> None:
 
         # Just need to get parameters once
-        self.timer_get_pubsub_params.cancel()
+        self._timer_get_pubsub_params.cancel()
 
-        while not self.get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):
+        while not self._get_pubsub_parameter_client.wait_for_service(timeout_sec=2.0):
             self.get_logger().warn('Pubsub parameter service not available, waiting again...')
 
         # Make request to get pubsub parameters with IPFS path
         request = GetParameters.Request()
         request.names = ['ipfs_dir_path']
-        future = self.get_pubsub_parameter_client.call_async(request)
+        future = self._get_pubsub_parameter_client.call_async(request)
 
         while future.result() is None:
             pass
 
-        self.ipfs_dir_path = future.result().values[0].string_value
+        self._ipfs_dir_path = future.result().values[0].string_value
 
     def __enter__(self) -> Self:
         """
