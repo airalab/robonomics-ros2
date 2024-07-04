@@ -125,7 +125,7 @@ def decrypt_data(encrypted_data: str,
 def encrypt_file(ros2_node: Node,
                  file_path: str,
                  encrypting_account: Account,
-                 recipient_addresses: typing.List[str]) -> [str, str]:
+                 recipient_addresses: typing.List[str]) -> str:
     """
     Encrypt file with robot private key and recipient addresses
     :param ros2_node:           Node object for sending logs
@@ -179,7 +179,7 @@ def decrypt_file(ros2_node: Node, file_path: str, decrypting_account: Account, s
     :param file_path: File to decrypt
     :param decrypting_account: An account which is going to decrypt file
     :param sender_address: An address that encrypted file
-    :return: Decrypted file name and decryption status
+    :return: Decrypted file name
     """
 
     # If decrypting account is in list of recipient addresses, then decrypt the data

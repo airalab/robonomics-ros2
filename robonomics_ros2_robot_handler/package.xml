@@ -7,10 +7,12 @@
   <maintainer email="fingerling42@proton.me">Ivan Berman</maintainer>
   <license>Apache-2.0</license>
 
-  <depend>rclpy</depend>
-  <depend>robonomics_ros2_interfaces</depend>
-  <depend>rcl_interfaces</depend>
+  <!-- Dependencies that are needed at execution-time (in Python only them are relevant)  -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>robonomics_ros2_interfaces</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
 
+  <!-- Dependencies only for test -->
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
