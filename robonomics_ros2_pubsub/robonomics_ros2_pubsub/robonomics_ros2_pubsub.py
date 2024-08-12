@@ -80,8 +80,8 @@ class RobonomicsROS2PubSub(Node):
                 seed=account_seed,
                 remote_ws=self._remote_node_url,
                 crypto_type=crypto_type)
-        except ValueError:
-            self.get_logger().error("A specified account type is not supported")
+        except ValueError as e:
+            self.get_logger().error("Problem with account creation: %s" % str(e))
             raise SystemExit
 
         # Checking connection to parachain
