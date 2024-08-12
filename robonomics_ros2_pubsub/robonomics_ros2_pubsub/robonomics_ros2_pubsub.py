@@ -5,6 +5,7 @@ import yaml
 import os
 import time
 import requests
+import websocket
 
 import ipfshttpclient2
 import ipfs_api
@@ -64,11 +65,6 @@ class RobonomicsROS2PubSub(Node):
         pinata_api_secret_key: str = pubsub_params_dict['pinata_api_secret_key']
         self._ipfs_gateway: str = pubsub_params_dict['ipfs_gateway']
 
-        # Check if remote node url is not specified, use default
-        if self._remote_node_url == '':
-            self._remote_node_url = 'wss://kusama.rpc.robonomics.network'
-        self.get_logger().info("Connected to Robonomics via: %s" % self._remote_node_url)
-
         # Checking the type of account
         if self._account_type == 'ED25519':
             crypto_type: int = KeypairType.ED25519
@@ -78,7 +74,7 @@ class RobonomicsROS2PubSub(Node):
         else:
             crypto_type: int = -1
 
-        # Creating account and show its address
+        # Creating account
         try:
             self.__account = rbi.Account(
                 seed=account_seed,
@@ -86,6 +82,14 @@ class RobonomicsROS2PubSub(Node):
                 crypto_type=crypto_type)
         except ValueError:
             self.get_logger().error("A specified account type is not supported")
+            raise SystemExit
+
+        # Checking connection to parachain
+        try:
+            rbi.ChainUtils(remote_ws=self._remote_node_url).get_block_hash(0)
+            self.get_logger().info("Connected to Robonomics via: %s" % self.__account.remote_ws)
+        except (requests.exceptions.RequestException, websocket._exceptions.WebSocketException) as e:
+            self.get_logger().error("Problem with connecting to Robonomics: %s" % e)
             raise SystemExit
 
         account_address: str = self.__account.get_address()
