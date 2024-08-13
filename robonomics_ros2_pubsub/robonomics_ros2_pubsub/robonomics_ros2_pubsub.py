@@ -95,39 +95,34 @@ class RobonomicsROS2PubSub(Node):
         account_address: str = self.__account.get_address()
         self.get_logger().info('My address is %s' % account_address)
 
-        # Checking if subscription exists and actives for initialization of datalog and launch
-        self.__robonomics_subscription = rbi.RWS(self.__account)
-        if self._rws_owner_address == '':
-            self.get_logger().info('The address of the subscription owner is not specified, '
-                                   'transactions will be performed as usual')
-            rws_status = False
-        elif is_valid_ss58_address(self._rws_owner_address, valid_ss58_format=32) is not True:
-            self.get_logger().warn('Given subscription owner address is not correct, '
-                                   'transactions will be performed as usual')
-            rws_status = False
-        elif self.__robonomics_subscription.get_days_left(addr=self._rws_owner_address) is False:
-            self.get_logger().warn('No subscription was found for the owner address, '
-                                   'transactions will be performed as usual')
-            rws_status = False
-        elif self.__robonomics_subscription.is_in_sub(self._rws_owner_address, account_address) is False:
-            self.get_logger().warn('Account not added to the specified subscription, '
-                                   'transactions will be performed as usual')
-            rws_status = False
-        else:
-            self.get_logger().info('Robonomics subscription found, transactions will be performed with the RWS module')
-            rws_status = True
+        # Trying to create valid Robonomics subscription
+        try:
+            rws_sub_owner = None
+            self.__robonomics_subscription = rbi.RWS(self.__account)
 
-        # If subscription found, initialize all functions for RWS
-        if rws_status is True:
-            self.__datalog = rbi.Datalog(self.__account, rws_sub_owner=self._rws_owner_address)
-            self.__launch = rbi.Launch(self.__account, rws_sub_owner=self._rws_owner_address)
+            if self._rws_owner_address != '':
+                rws_is_subscribed = self.__robonomics_subscription.is_in_sub(self._rws_owner_address, account_address)
+                rws_days_left = self.__robonomics_subscription.get_days_left(addr=self._rws_owner_address)
 
-            self._srv_get_rws_users = self.create_service(
-                RobonomicsROS2GetRWSUsers,
-                'robonomics/get_rws_users',
-                self.get_rws_users_callback
-            )
-        else:
+                if rws_is_subscribed is True and rws_days_left is not False:
+                    self.get_logger().info(
+                        'Robonomics subscription found, transactions will be performed with the RWS module')
+                    rws_sub_owner = self._rws_owner_address
+
+                    self._srv_get_rws_users = self.create_service(
+                        RobonomicsROS2GetRWSUsers,
+                        'robonomics/get_rws_users',
+                        self.get_rws_users_callback
+                    )
+            else:
+                self.get_logger().info(
+                    'No subscription was found, transactions will be performed per XRT')
+
+            self.__datalog = rbi.Datalog(self.__account, rws_sub_owner=rws_sub_owner)
+            self.__launch = rbi.Launch(self.__account, rws_sub_owner=rws_sub_owner)
+
+        except Exception as e:
+            self.get_logger().warn('Problem with creating RWS subscription, transactions will be performed per XRT: %s' % str(e))
             self.__datalog = rbi.Datalog(self.__account)
             self.__launch = rbi.Launch(self.__account)
 
