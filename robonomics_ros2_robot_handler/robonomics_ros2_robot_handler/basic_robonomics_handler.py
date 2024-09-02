@@ -58,7 +58,7 @@ class BasicRobonomicsHandler(Node):
         # Create subscriber for launch
         self._launch_file_subscriber = self.create_subscription(
             RobonomicsROS2ReceivedLaunch,
-            'robonomics/launch_file_name',
+            'robonomics/received_launch',
             self.launch_file_subscriber_callback,
             10,
         )

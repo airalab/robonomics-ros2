@@ -208,7 +208,7 @@ class RobonomicsROS2PubSub(Node):
         # Publisher of file name of launch parameters
         self._launch_file_publisher = self.create_publisher(
             RobonomicsROS2ReceivedLaunch,
-            'robonomics/launch_file_name',
+            'robonomics/received_launch',
             10
         )
 
