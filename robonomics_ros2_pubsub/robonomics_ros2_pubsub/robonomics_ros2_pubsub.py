@@ -100,7 +100,7 @@ class RobonomicsROS2PubSub(Node):
             rws_sub_owner = None
             self.__robonomics_subscription = rbi.RWS(self.__account)
 
-            if self._rws_owner_address != '':
+            if self._rws_owner_address:
                 rws_is_subscribed = self.__robonomics_subscription.is_in_sub(self._rws_owner_address, account_address)
                 rws_days_left = self.__robonomics_subscription.get_days_left(addr=self._rws_owner_address)
 
@@ -122,7 +122,8 @@ class RobonomicsROS2PubSub(Node):
             self.__launch = rbi.Launch(self.__account, rws_sub_owner=rws_sub_owner)
 
         except Exception as e:
-            self.get_logger().warn('Problem with creating RWS subscription, transactions will be performed per XRT: %s' % str(e))
+            self.get_logger().warn(
+                'Problem with creating RWS subscription, transactions will be performed per XRT: %s' % str(e))
             self.__datalog = rbi.Datalog(self.__account)
             self.__launch = rbi.Launch(self.__account)
 
@@ -136,26 +137,39 @@ class RobonomicsROS2PubSub(Node):
 
         # Checking Pinata connection and API keys
         self.__pinata_api = None
-        if pinata_api_key != '' and pinata_api_secret_key != '':
-            self.get_logger().info('Found Pinata API keys, trying to connect...')
-            # Try to connect to Pinata, retries 10 times if errors occur
-            self.__pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
 
-            for connection_attempt in range(0, 10):
-                try:
-                    if 'status' and 'reason' in self.__pinata_api.user_pinned_data_total():
-                        self.__pinata_api = None
-                        self.get_logger().error('Pinata API keys are incorrect')
-                    else:
+        try:
+            if pinata_api_key and pinata_api_secret_key:
+                self.get_logger().info('Found Pinata API keys, trying to connect...')
+                self.__pinata_api = PinataPy(pinata_api_key, pinata_api_secret_key)
+
+                for connection_attempt in range(0, 10):
+                    try:
+                        # Attempt to check if API keys are correct by calling an endpoint
+                        response = self.__pinata_api.user_pinned_data_total()
+
+                        # If there's an issue with the response, raise an exception
+                        if 'status' in response and 'reason' in response:
+                            raise ValueError('Pinata API keys are incorrect')
+
+                        # Successful connection
                         self.get_logger().info('Pinning IPFS files to Pinata is activated')
+                        break
 
-                    break
-                except requests.exceptions.ConnectionError:
-                    self.get_logger().warn('Cannot connect to Pinata, trying again...')
-                    time.sleep(5)
+                    except requests.exceptions.ConnectionError:
+                        self.get_logger().warn('Cannot connect to Pinata, trying again...')
+                        time.sleep(5)
+
+                else:
+                    # If all retries failed, exit the system
+                    self.get_logger().error('Failed to connect to Pinata after 10 retries, shutting down...')
+                    raise SystemExit
+
             else:
-                self.get_logger().error('Cannot connect to Pinata after 10 retries, shutting down...')
-                raise SystemExit
+                self.get_logger().debug('No Pinata API keys provided, skipping Pinata setup')
+        except Exception as e:
+            self.get_logger().error('An error occurred during Pinata connection setup: %s' % str(e))
+            raise SystemExit
 
         # Checking IPFS directory, if not, use default
         if self._ipfs_dir_path == '' or os.path.isdir(self._ipfs_dir_path) is False:
