@@ -10,6 +10,9 @@ import websocket
 import ipfshttpclient2
 import ipfs_api
 from pinatapy import PinataPy
+from multiformats import CID
+from multiformats.multibase.err import MultibaseValueError, MultibaseKeyError
+from bases.encoding.errors import NonAlphabeticCharError
 
 import rclpy
 from rclpy.node import Node
@@ -17,11 +20,9 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.parameter import Parameter
 from rcl_interfaces.msg import ParameterDescriptor
-from ament_index_python.packages import get_package_share_directory
 
 import robonomicsinterface as rbi
 from substrateinterface import KeypairType
-from substrateinterface.utils.ss58 import is_valid_ss58_address
 
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
                                             RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
@@ -331,38 +332,40 @@ class RobonomicsROS2PubSub(Node):
         """
         log_process_start(self, 'Receiving new datalog from %s...' % request.sender_address)
         try:
-            # Check if address of datalog sender is valid
-            if is_valid_ss58_address(request.sender_address, valid_ss58_format=32) is True:
-                [timestamp, datalog_content] = self.__datalog.get_item(request.sender_address)
-                datalog_content = str(datalog_content)
+            [timestamp, datalog_content] = self.__datalog.get_item(request.sender_address)
+            datalog_content = str(datalog_content)
+            self.get_logger().info('Datalog content: %s' % datalog_content)
 
-                # Check if datalog content is IPFS hash, otherwise return only its string
-                if datalog_content.startswith('Qm'):
-                    self.get_logger().info('Found IPFS hash in datalog: %s' % datalog_content)
+            # Find out if a datalog is an IPFS file or just a string
+            try:
+                CID.decode(datalog_content)
+                datalog_is_ipfs = True
+            except (MultibaseValueError, MultibaseKeyError, NonAlphabeticCharError, ValueError):
+                datalog_is_ipfs = False
 
-                    # Check if datalog file name is set, if not then use IPFS hash as a name
-                    if request.datalog_file_name == '':
-                        file_path = str(os.path.join(self._ipfs_dir_path, datalog_content))
-                    else:
-                        file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_file_name))
-
-                    # Download from IPFS
-                    ipfs_download(ros2_node=self, cid=datalog_content, file_path=file_path, gateway=self._ipfs_gateway)
-
-                    # Decrypt file if it is needed
-                    file_path = decrypt_file(self, file_path, self.__account, request.sender_address)
-
-                    log_process_end(self, 'Datalog received successfully')
-                    response.datalog_content = file_path
+            if datalog_is_ipfs:
+                # Check if datalog file name is set, if not then use IPFS hash as a name
+                if request.datalog_file_name:
+                    file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_file_name))
                 else:
-                    response.datalog_content = datalog_content
+                    file_path = str(os.path.join(self._ipfs_dir_path, datalog_content))
 
-                # Get timestamp with nanosec
-                response.timestamp.sec = int(timestamp // 1000)
-                response.timestamp.nanosec = int((timestamp % 1000) * 10 ** 6)
+                # Download from IPFS
+                ipfs_download(ros2_node=self, cid=datalog_content, file_path=file_path, gateway=self._ipfs_gateway)
+
+                # Decrypt file if it is needed
+                file_path = decrypt_file(self, file_path, self.__account, request.sender_address)
+
+                response.datalog_content = file_path
 
             else:
-                raise ValueError("Invalid datalog sender address")
+                response.datalog_content = datalog_content
+
+            # Get timestamp with nanosec
+            response.timestamp.sec = int(timestamp // 1000)
+            response.timestamp.nanosec = int((timestamp % 1000) * 10 ** 6)
+
+            log_process_end(self, 'Datalog received successfully')
 
         except Exception as e:
             response.datalog_content = ''
