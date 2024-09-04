@@ -171,11 +171,17 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().error('An error occurred during Pinata connection setup: %s' % str(e))
             raise SystemExit
 
-        # Checking IPFS directory, if not, use default
-        if self._ipfs_dir_path == '' or os.path.isdir(self._ipfs_dir_path) is False:
-            self._ipfs_dir_path = os.path.join(get_package_share_directory('robonomics_ros2_pubsub'), 'ipfs_files')
-        else:
+        # Checking IPFS directory, if not, use current
+        try:
             self._ipfs_dir_path = os.path.abspath(self._ipfs_dir_path)
+
+            if not os.path.isdir(self._ipfs_dir_path):
+                raise ValueError(f"{self._ipfs_dir_path} is not a valid directory for IPFS files")
+
+        except (ValueError, FileNotFoundError):
+            self.get_logger().warn("Not found valid directory for IPFS files, switching to current")
+            self._ipfs_dir_path = os.path.abspath('')
+
         self.get_logger().info("My IPFS files directory is: " + self._ipfs_dir_path)
 
         # Set IPFS path parameter

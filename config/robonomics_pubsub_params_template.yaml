@@ -10,7 +10,7 @@ crypto_type:              ''
 # An address of Robonomics subscription owner, empty if there is no subscription
 rws_owner_address:        ''
 
-# Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise default path in ROS package will be used
+# Full path of your directory, e.g. '/home/user/ipfs_files/', otherwise current path will be used
 ipfs_dir_path:            ''
 
 # IPFS gateway to download files, e.g. 'https://ipfs.io'

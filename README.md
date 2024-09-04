@@ -176,7 +176,7 @@ of the subscription owner to the `rws_owner_address` field. Don't forget that yo
 to your subscription.
    
 You may also want to change the directory where the files for IPFS will be stored. To do this, change the 
-parameter `ipfs_dir_path`, otherwise it will use the default directory.  The `ipfs_gateway` parameter allows you 
+parameter `ipfs_dir_path`, otherwise it will use the current directory.  The `ipfs_gateway` parameter allows you 
 to specify the gateway through which IPFS files will be downloaded.
 
 The `pinata_api_key` and `pinata_api_secret_key` parameters are needed to access Pinata API.
