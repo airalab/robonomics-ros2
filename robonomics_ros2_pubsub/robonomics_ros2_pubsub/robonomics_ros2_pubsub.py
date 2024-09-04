@@ -300,22 +300,18 @@ class RobonomicsROS2PubSub(Node):
         """
         log_process_start(self, 'Sending new launch to %s...' % request.target_address)
         try:
-            # Check if target address is valid
-            if is_valid_ss58_address(request.target_address, valid_ss58_format=32) is True:
-                file_path = str(os.path.join(self._ipfs_dir_path, request.param_file_name))
+            file_path = str(os.path.join(self._ipfs_dir_path, request.param_file_name))
 
-                # Check if encryption is needed
-                if request.encrypt_status is True:
-                    file_path = encrypt_file(self, file_path, self.__account, [request.target_address])
+            # Check if encryption is needed
+            if request.encrypt_status is True:
+                file_path = encrypt_file(self, file_path, self.__account, [request.target_address])
 
-                # Upload file to IPFS and Pinata
-                param_cid: str = ipfs_upload(file_path, self.__pinata_api)
-                self.get_logger().info('IPFS CID of launch param: %s' % param_cid)
+            # Upload file to IPFS and Pinata
+            param_cid: str = ipfs_upload(file_path, self.__pinata_api)
+            self.get_logger().info('IPFS CID of launch param: %s' % param_cid)
 
-                response.launch_hash = self.__launch.launch(request.target_address, param_cid)
-                log_process_end(self, 'Launch is sent with hash: %s' % response.launch_hash)
-            else:
-                raise ValueError('Invalid target address')
+            response.launch_hash = self.__launch.launch(request.target_address, param_cid)
+            log_process_end(self, 'Launch is sent with hash: %s' % response.launch_hash)
 
         except Exception as e:
             response.launch_hash = ''
