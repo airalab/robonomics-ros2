@@ -82,13 +82,15 @@ class BasicRobonomicsHandler(Node):
         return self._ipfs_dir_path
 
     def send_datalog_request(self,
-                             datalog_file_name: str,
-                             encrypt_recipient_addresses: Optional[List[str]]
+                             datalog_content: str,
+                             encrypt_recipient_addresses: Optional[List[str]],
+                             is_file: bool = True
                              ) -> str:
         """
         Request function to send datalog
-        :param  datalog_file_name: File name that will be uploaded to IPFS
+        :param  datalog_content: Just string or file name that will be uploaded to IPFS
         :param  encrypt_recipient_addresses: Addresses for file encryption, if empty, encryption will not be performed
+        :param  is_file: True or False, is a datalog a file that needs to be uploaded to IPFS
         :return: Hash of the datalog transaction
         """
         # Wait for service
@@ -97,8 +99,9 @@ class BasicRobonomicsHandler(Node):
 
         # Preparing a request
         request = RobonomicsROS2SendDatalog.Request()
-        request.datalog_file_name = datalog_file_name
+        request.datalog_content = datalog_content
         request.encrypt_recipient_addresses = encrypt_recipient_addresses
+        request.is_file = is_file
 
         # Making a request and wait for its execution
         future = self._send_datalog_client.call_async(request)

@@ -263,23 +263,26 @@ class RobonomicsROS2PubSub(Node):
                               ) -> RobonomicsROS2SendDatalog.Response:
         """
         Send datalog with specified content
-        :param request: datalog file name and list with addresses for file encryption
+        :param request: datalog content (file or string) and list with addresses for file encryption
         :param response: hash of the datalog transaction
         :return: response
         """
         log_process_start(self, 'Sending new datalog...')
         try:
-            file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_file_name))
+            if request.is_file:
+                file_path = str(os.path.join(self._ipfs_dir_path, request.datalog_content))
 
-            # Check if encryption is needed
-            if request.encrypt_recipient_addresses:
-                file_path = encrypt_file(self, file_path, self.__account, request.encrypt_recipient_addresses)
+                # Check if encryption is needed
+                if request.encrypt_recipient_addresses:
+                    file_path = encrypt_file(self, file_path, self.__account, request.encrypt_recipient_addresses)
 
-            # Upload file to IPFS and Pinata
-            datalog_cid: str = ipfs_upload(file_path, self.__pinata_api)
-            self.get_logger().info('IPFS CID of datalog: %s' % datalog_cid)
+                # Upload file to IPFS and Pinata
+                datalog_to_send: str = ipfs_upload(file_path, self.__pinata_api)
+                self.get_logger().info('IPFS CID of datalog: %s' % datalog_to_send)
+            else:
+                datalog_to_send = str(request.datalog_content)
 
-            response.datalog_hash = self.__datalog.record(datalog_cid)
+            response.datalog_hash = self.__datalog.record(datalog_to_send)
             log_process_end(self, 'Datalog is sent with hash: %s' % response.datalog_hash)
 
         except Exception as e:
@@ -336,7 +339,7 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().info('Datalog content: %s' % datalog_content)
 
             # Find out if a datalog is an IPFS file or just a string
-            datalog_is_ipfs = ipfs_cid_check(datalog_content)
+            datalog_is_ipfs: bool = ipfs_cid_check(datalog_content)
 
             if datalog_is_ipfs:
                 # Check if datalog file name is set, if not then use IPFS hash as a name
