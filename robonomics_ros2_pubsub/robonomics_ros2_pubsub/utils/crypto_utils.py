@@ -1,3 +1,4 @@
+import substrateinterface.utils.hasher
 from robonomicsinterface import Account
 
 import typing
@@ -13,9 +14,23 @@ from rclpy.node import Node
 from pinatapy import PinataPy
 from substrateinterface import Keypair, KeypairType
 from scalecodec.utils.ss58 import ss58_decode
+from multiformats import CID
+from multiformats.multibase.err import MultibaseValueError, MultibaseKeyError
+from bases.encoding.errors import NonAlphabeticCharError
 
 from robonomics_ros2_pubsub.utils.exceptions import FileNotEncryptedException, AddressNotInDecryptionException
 
+def ipfs_cid_check(input_string: str) -> bool:
+    """
+    Function for checking if string is IPFS CID
+    :return: is_ipfs: True or False
+    """
+    try:
+        CID.decode(input_string)
+        is_ipfs = True
+    except (MultibaseValueError, MultibaseKeyError, NonAlphabeticCharError, ValueError):
+        is_ipfs = False
+    return is_ipfs
 
 def ipfs_upload(file_path: str, pinata_api: PinataPy | None) -> str:
     """

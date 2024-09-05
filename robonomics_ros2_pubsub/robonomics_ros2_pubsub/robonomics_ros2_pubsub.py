@@ -1,4 +1,6 @@
 from typing import Any, Dict
+
+from robonomicsinterface.robonomics_interface_io import datalog
 from typing_extensions import Self
 
 import yaml
@@ -10,9 +12,6 @@ import websocket
 import ipfshttpclient2
 import ipfs_api
 from pinatapy import PinataPy
-from multiformats import CID
-from multiformats.multibase.err import MultibaseValueError, MultibaseKeyError
-from bases.encoding.errors import NonAlphabeticCharError
 
 import rclpy
 from rclpy.node import Node
@@ -27,7 +26,7 @@ from substrateinterface import KeypairType
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
                                             RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
-from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file
+from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file, ipfs_cid_check
 from robonomics_ros2_pubsub.utils.ros2_utils import log_process_start, log_process_end
 
 
@@ -337,11 +336,7 @@ class RobonomicsROS2PubSub(Node):
             self.get_logger().info('Datalog content: %s' % datalog_content)
 
             # Find out if a datalog is an IPFS file or just a string
-            try:
-                CID.decode(datalog_content)
-                datalog_is_ipfs = True
-            except (MultibaseValueError, MultibaseKeyError, NonAlphabeticCharError, ValueError):
-                datalog_is_ipfs = False
+            datalog_is_ipfs = ipfs_cid_check(datalog_content)
 
             if datalog_is_ipfs:
                 # Check if datalog file name is set, if not then use IPFS hash as a name
