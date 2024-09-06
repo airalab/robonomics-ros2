@@ -2,18 +2,20 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>turtlesim_robonomics</name>
-  <version>3.0.0</version>
+  <version>3.1.0</version>
   <description>Example how to use Robonomics ROS2 wrapper with Turtlesim</description>
   <maintainer email="fingerling42@proton.me">Ivan Berman</maintainer>
   <license>Apache-2.0</license>
 
-  <depend>robonomics_ros2_robot_handler</depend>
-  <depend>rclpy</depend>
+  <!-- Dependencies that are needed at execution-time (in Python only them are relevant)  -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>robonomics_ros2_robot_handler</exec_depend>
+  <exec_depend>turtlesim</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>robonomics_ros2_interfaces</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
 
-  <depend>turtlesim</depend>
-  <depend>geometry_msgs</depend>
-  <depend>robonomics_ros2_interfaces</depend>
-
+  <!-- Dependencies only for test -->
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

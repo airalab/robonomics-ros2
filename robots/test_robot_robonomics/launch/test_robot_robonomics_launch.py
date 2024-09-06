@@ -32,19 +32,18 @@ def generate_launch_description():
     )
 
     # Robonomics handler for your robot
-    # your_robot_robonomics = Node(
-    #    package='your_robot_robonomics',
-    #    executable='your_robot_robonomics',
-    #    emulate_tty=True,
-    # )
+    test_robot_robonomics_node = Node(
+       package='test_robot_robonomics',
+       executable='test_robot_robonomics_node',
+       emulate_tty=True,
+    )
 
     # Run all nodes with same namespace
     namespace_launch_action = GroupAction(
         actions=[
             PushRosNamespace(LaunchConfiguration('namespace')),
             robonomics_pubsub_node,
-            # your_robot_robonomics
-            # other_nodes
+            test_robot_robonomics_node,
         ]
     )
 

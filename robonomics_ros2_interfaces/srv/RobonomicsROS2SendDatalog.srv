@@ -1,4 +1,5 @@
-string      datalog_file_name               # File name that need to be uploaded to IPFS
-string[]    encrypt_recipient_addresses []  # Addresses for file encryption, if empty, encryption will not be performed
+string      datalog_content                     # Just string or file name that need to be uploaded to IPFS
+string[]    encrypt_recipient_addresses []      # Addresses for file encryption, if empty, encryption will not be performed
+bool        is_file                     True    # Is a datalog a file that needs to be uploaded to IPFS?
 ---
-string      datalog_hash                    # Hash of the datalog transaction
+string      datalog_hash                        # Hash of the datalog transaction

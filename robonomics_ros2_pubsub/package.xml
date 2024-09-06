@@ -2,15 +2,17 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>robonomics_ros2_pubsub</name>
-  <version>3.0.0</version>
+  <version>3.1.0</version>
   <description>Package for using Robonomics functions from ROS 2</description>
   <maintainer email="fingerling42@proton.me">Ivan Berman</maintainer>
   <license>Apache-2.0</license>
 
+  <!-- Dependencies that are needed at execution-time (in Python only them are relevant)  -->
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>robonomics_ros2_interfaces</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
 
-  <depend>robonomics_ros2_interfaces</depend>
-
+  <!-- Dependencies only for test -->
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
