@@ -224,43 +224,39 @@ the service (do not forget to insert address):
 controlled using `/cmd_vel` topic, so you need to prepare corresponding messages, that will go as a launch parameter. 
 For convenience, these messages are prepared as JSON-file:
     ```json
-    {
-       "linear":{
-          "x":[
-             1.0,
-             2.0
-          ],
-          "y":[
-             0.0,
-             0.0
-          ],
-          "z":[
-             0.0,
-             0.0
-          ]
-       },
-       "angular":{
-          "x":[
-             0.0,
-             0.0
-          ],
-          "y":[
-             0.0,
-             0.0
-          ],
-          "z":[
-             1.0,
-             2.0
-          ]
-       }
-    }
+   [
+      {
+         "linear": {
+            "x": 5.0,
+            "y": 0.0,
+            "z": 0.0
+         },
+         "angular": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.5
+         }
+      },
+      {
+         "linear": {
+            "x": 2.0,
+            "y": 0.0,
+            "z": 0.0
+         },
+         "angular": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 2.5
+         }
+      }
+   ]
     ```
     This JSON example will command the turtle to move twice.
    
 7. Save this JSON to IPFS directory of some turtle and run the following:
 
     ```shell
-   ros2 service call /turtlesim1/robonomics/send_launch robonomics_ros2_interfaces/srv/RobonomicsROS2SendLaunch {"param_file_name: 'test_name.json', target_address: 'TURTLE2_ADDRESS'"}
+   ros2 service call /turtlesim1/robonomics/send_launch robonomics_ros2_interfaces/srv/RobonomicsROS2SendLaunch {"param: 'test_name.json', target_address: 'TURTLE2_ADDRESS'"}
     ```
    
    Watch for the simulation, the turtle should start moving.
