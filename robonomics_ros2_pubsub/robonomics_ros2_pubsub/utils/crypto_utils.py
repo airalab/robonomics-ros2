@@ -94,8 +94,8 @@ def ipfs_download(ros2_node: Node, cid: str, file_path: str, gateway: str) -> No
     :param gateway: IPFS gateway to download file
     :return: None
     """
-    if gateway != '':
-        ros2_node.get_logger().info('Found IPFS gateway, will try to use it for downloading')
+    if gateway:
+        ros2_node.get_logger().debug('Found IPFS gateway, will try to use it for downloading')
         url: str = urllib.parse.urljoin(gateway, 'ipfs/' + cid)
         retry_num: int = 5
         try:
@@ -125,7 +125,7 @@ def ipfs_download(ros2_node: Node, cid: str, file_path: str, gateway: str) -> No
                 'Gateway is not available after %i retries with error: %s' % (retry_num, str(e))
             )
 
-    ros2_node.get_logger().info('Will try to use local IPFS node for downloading')
+    ros2_node.get_logger().debug('Will try to use local IPFS node for downloading')
     ipfs_api.download(cid, file_path)
     return
 

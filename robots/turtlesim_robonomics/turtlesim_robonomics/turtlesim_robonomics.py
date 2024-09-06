@@ -82,23 +82,24 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         Method for publishing all messages to cmd_vel topic
         :return: None
         """
-        msg = Twist()
+        cmd_vel_msg = Twist()
 
-        file = open(os.path.join(self.ipfs_dir_path, self.param), 'r')
-        data = json.load(file)
+        with open(os.path.join(self.ipfs_dir_path, self.param), 'r') as json_file:
+            json_data = json.load(json_file)
 
-        for i in range(0, len(data['linear']['x'])):
-            msg.linear.x = data['linear']['x'][i]
-            msg.linear.y = data['linear']['y'][i]
-            msg.linear.z = data['linear']['z'][i]
+        for data in json_data:
+            cmd_vel_msg.linear.x = data['linear']['x']
+            cmd_vel_msg.linear.y = data['linear']['y']
+            cmd_vel_msg.linear.z = data['linear']['z']
 
-            msg.angular.x = data['angular']['x'][i]
-            msg.angular.y = data['angular']['y'][i]
-            msg.angular.z = data['angular']['z'][i]
-            self.cmd_vel_publisher.publish(msg)
+            cmd_vel_msg.angular.x = data['angular']['x']
+            cmd_vel_msg.angular.y = data['angular']['y']
+            cmd_vel_msg.angular.z = data['angular']['z']
+
+            self.cmd_vel_publisher.publish(cmd_vel_msg)
             time.sleep(2)
+
         self.get_logger().info("Finished publishing cmd vel")
-        file.close()
 
 
 def main(args=None) -> None:
