@@ -25,7 +25,7 @@ from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, Robonomic
                                             RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
 from robonomics_ros2_pubsub.utils.crypto_utils import (ipfs_upload, ipfs_download, encrypt_file,
-                                                       decrypt_file, ipfs_cid_check, string_to_h256)
+                                                       decrypt_file, ipfs_cid_check, string_to_h256, h256_to_string)
 from robonomics_ros2_pubsub.utils.ros2_utils import log_process_start, log_process_end
 
 
@@ -47,6 +47,9 @@ class RobonomicsROS2PubSub(Node):
                 ('ipfs_dir_path',
                  rclpy.Parameter.Type.STRING,
                  ParameterDescriptor(description='Path to directory with IPFS files')),
+                ('launch_is_ipfs',
+                 True,
+                 ParameterDescriptor(description='Flag to mark if the expected launch parameter is an IPFS hash')),
             ]
         )
         # Path to YAML-file with parameters
@@ -224,7 +227,7 @@ class RobonomicsROS2PubSub(Node):
             subscription_handler=self.receive_launch_callback,
         )
 
-        # Publisher of file name of launch parameters
+        # Publisher of launch content
         self._launch_file_publisher = self.create_publisher(
             RobonomicsROS2ReceivedLaunch,
             'robonomics/received_launch',
@@ -388,25 +391,30 @@ class RobonomicsROS2PubSub(Node):
         log_process_start(self, "Getting launch from %s..." % launch_sender_address)
 
         try:
-            # Only IPFS hashes are permitted to use in launch parameters
-            ipfs_hash = rbi.utils.ipfs_32_bytes_to_qm_hash(launch_param)
-            self.get_logger().info("IPFS CID in launch param: %s" % ipfs_hash)
+            if self.get_parameter('launch_is_ipfs').value:
+                ipfs_hash = rbi.utils.ipfs_32_bytes_to_qm_hash(launch_param)
 
-            file_path = str(os.path.join(self._ipfs_dir_path, ipfs_hash))
+                file_path = str(os.path.join(self._ipfs_dir_path, ipfs_hash))
 
-            # Download from IPFS
-            ipfs_download(ros2_node=self, cid=ipfs_hash, file_path=file_path, gateway=self._ipfs_gateway)
+                # Download from IPFS
+                ipfs_download(ros2_node=self, cid=ipfs_hash, file_path=file_path, gateway=self._ipfs_gateway)
 
-            # Decrypt file if it is needed
-            file_path = decrypt_file(self, file_path, self.__account, launch_sender_address)
+                # Decrypt file if it is needed
+                file_path = decrypt_file(self, file_path, self.__account, launch_sender_address)
+                received_param = str(os.path.basename(file_path))
+            else:
+                # If parameter is just a string, convert in back from 32 bytes HEX
+                received_param = h256_to_string(launch_param)
+
+            self.get_logger().info("Launch param content: %s" % received_param)
 
             # Prepare ROS msg and send it to topic
             received_launch_msg = RobonomicsROS2ReceivedLaunch()
-            received_launch_msg.param_file_name = str(os.path.basename(file_path))
+            received_launch_msg.param = received_param
             received_launch_msg.launch_sender_address = str(launch_sender_address)
 
             self._launch_file_publisher.publish(received_launch_msg)
-            log_process_end(self, 'Launch file received successfully')
+            log_process_end(self, 'Launch received successfully')
 
         except Exception as e:
             self.get_logger().error('Launch receiving failed with exception: %s' % str(e))

@@ -17,7 +17,7 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         super().__init__()
 
         self.pose_file_name = 'turtle_pose.json'
-        self.param_file_name = 'turtle_cmd_vel.json'
+        self.param = 'turtle_cmd_vel.json'
 
         # Subscription for turtlesim location data
         self.turtle_pose = Pose()
@@ -42,9 +42,10 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
             10,
         )
 
-    def launch_file_subscriber_callback(self, msg: RobonomicsROS2ReceivedLaunch) -> None:
-        super().launch_file_subscriber_callback(msg)
-        self.publish_to_cmd_vel()
+    def launch_param_subscriber_callback(self, msg: RobonomicsROS2ReceivedLaunch) -> None:
+        super().launch_param_subscriber_callback(msg)
+        if self.is_launch_ipfs():
+            self.publish_to_cmd_vel()
 
     def subscriber_pose_callback(self, msg: Pose) -> None:
         """
@@ -83,7 +84,7 @@ class TurtlesimRobonomics(BasicRobonomicsHandler):
         """
         msg = Twist()
 
-        file = open(os.path.join(self.ipfs_dir_path, self.param_file_name), 'r')
+        file = open(os.path.join(self.ipfs_dir_path, self.param), 'r')
         data = json.load(file)
 
         for i in range(0, len(data['linear']['x'])):

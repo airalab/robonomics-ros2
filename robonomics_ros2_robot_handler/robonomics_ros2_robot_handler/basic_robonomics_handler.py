@@ -26,7 +26,7 @@ class BasicRobonomicsHandler(Node):
 
         # File name for launch parameter
         self._ipfs_dir_path: str = ''
-        self.param_file_name: str = ''
+        self.param: str = ''
 
         # Service for getting parameters from pubsub
         self._get_pubsub_parameter_client = self.create_client(
@@ -56,10 +56,10 @@ class BasicRobonomicsHandler(Node):
         )
 
         # Create subscriber for launch
-        self._launch_file_subscriber = self.create_subscription(
+        self._launch_param_subscriber = self.create_subscription(
             RobonomicsROS2ReceivedLaunch,
             'robonomics/received_launch',
-            self.launch_file_subscriber_callback,
+            self.launch_param_subscriber_callback,
             10,
         )
 
@@ -176,14 +176,14 @@ class BasicRobonomicsHandler(Node):
 
         return [timestamp, datalog_content]
 
-    def launch_file_subscriber_callback(self, msg: RobonomicsROS2ReceivedLaunch) -> None:
+    def launch_param_subscriber_callback(self, msg: RobonomicsROS2ReceivedLaunch) -> None:
         """
 
         :param msg: launch sender address and file name with param
         :return: None
         """
         launch_sender_address = msg.launch_sender_address
-        self.param_file_name = msg.param_file_name
+        self.param = msg.param
 
     def get_rws_users_request(self) -> [str]:
         """
@@ -220,6 +220,18 @@ class BasicRobonomicsHandler(Node):
             pass
 
         self._ipfs_dir_path = future.result().values[0].string_value
+
+    def is_launch_ipfs(self) -> bool:
+        # Make request to get pubsub parameters
+        request = GetParameters.Request()
+        request.names = ['launch_is_ipfs']
+        future = self._get_pubsub_parameter_client.call_async(request)
+
+        while future.result() is None:
+            pass
+
+        return future.result().values[0].bool_value
+
 
     def __enter__(self) -> Self:
         """
