@@ -1,6 +1,4 @@
 from typing import Any, Dict
-
-from robonomicsinterface.robonomics_interface_io import datalog
 from typing_extensions import Self
 
 import yaml
@@ -26,7 +24,8 @@ from substrateinterface import KeypairType
 from robonomics_ros2_interfaces.srv import (RobonomicsROS2SendDatalog, RobonomicsROS2SendLaunch,
                                             RobonomicsROS2ReceiveDatalog, RobonomicsROS2GetRWSUsers)
 from robonomics_ros2_interfaces.msg import RobonomicsROS2ReceivedLaunch
-from robonomics_ros2_pubsub.utils.crypto_utils import ipfs_upload, ipfs_download, encrypt_file, decrypt_file, ipfs_cid_check
+from robonomics_ros2_pubsub.utils.crypto_utils import (ipfs_upload, ipfs_download, encrypt_file,
+                                                       decrypt_file, ipfs_cid_check, string_to_h256)
 from robonomics_ros2_pubsub.utils.ros2_utils import log_process_start, log_process_end
 
 
@@ -278,10 +277,10 @@ class RobonomicsROS2PubSub(Node):
 
                 # Upload file to IPFS and Pinata
                 datalog_to_send: str = ipfs_upload(file_path, self.__pinata_api)
-                self.get_logger().info('IPFS CID of datalog: %s' % datalog_to_send)
             else:
                 datalog_to_send = str(request.datalog_content)
 
+            self.get_logger().info('Datalog content: %s' % datalog_to_send)
             response.datalog_hash = self.__datalog.record(datalog_to_send)
             log_process_end(self, 'Datalog is sent with hash: %s' % response.datalog_hash)
 
@@ -297,23 +296,27 @@ class RobonomicsROS2PubSub(Node):
                              ) -> RobonomicsROS2SendLaunch.Response:
         """
         Send launch to specified address with specified param
-        :param request: file name with param content, target address, encrypt status
+        :param request: string or file name with params, target address, file flag and encrypt status
         :param response: hash of the datalog transaction
         :return: response
         """
         log_process_start(self, 'Sending new launch to %s...' % request.target_address)
         try:
-            file_path = str(os.path.join(self._ipfs_dir_path, request.param_file_name))
+            if request.is_file:
+                file_path = str(os.path.join(self._ipfs_dir_path, request.param))
 
-            # Check if encryption is needed
-            if request.encrypt_status is True:
-                file_path = encrypt_file(self, file_path, self.__account, [request.target_address])
+                # Check if encryption is needed
+                if request.encrypt_status is True:
+                    file_path = encrypt_file(self, file_path, self.__account, [request.target_address])
 
-            # Upload file to IPFS and Pinata
-            param_cid: str = ipfs_upload(file_path, self.__pinata_api)
-            self.get_logger().info('IPFS CID of launch param: %s' % param_cid)
+                # Upload file to IPFS and Pinata
+                param_to_send: str = ipfs_upload(file_path, self.__pinata_api)
+            else:
+                # If parameter is just a string, convert in to 32 bytes in HEX
+                param_to_send: str = string_to_h256(request.param)
 
-            response.launch_hash = self.__launch.launch(request.target_address, param_cid)
+            self.get_logger().info('Launch param: %s' % param_to_send)
+            response.launch_hash = self.__launch.launch(request.target_address, param_to_send)
             log_process_end(self, 'Launch is sent with hash: %s' % response.launch_hash)
 
         except Exception as e:

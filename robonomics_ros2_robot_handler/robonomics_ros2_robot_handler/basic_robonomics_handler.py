@@ -90,7 +90,7 @@ class BasicRobonomicsHandler(Node):
         Request function to send datalog
         :param  datalog_content: Just string or file name that will be uploaded to IPFS
         :param  encrypt_recipient_addresses: Addresses for file encryption, if empty, encryption will not be performed
-        :param  is_file: True or False, is a datalog a file that needs to be uploaded to IPFS
+        :param  is_file: True or False, is the datalog a file that needs to be uploaded to IPFS?
         :return: Hash of the datalog transaction
         """
         # Wait for service
@@ -113,14 +113,16 @@ class BasicRobonomicsHandler(Node):
         return datalog_hash
 
     def send_launch_request(self,
-                            param_file_name: str,
+                            param: str,
                             target_address: str,
+                            is_file: bool = True,
                             encrypt_status: bool = True,
                             ) -> str:
         """
         Request function to send launch command
-        :param param_file_name: Name of file that contains parameter
+        :param param: Name of file that contains parameter
         :param target_address: Address to be triggered with launch
+        :param  is_file: True or False, is the launch param a file that needs to be uploaded to IPFS?
         :param encrypt_status: Check if the parameter file needs to be encrypted with a target address, default is True
         :return: hash of the launch transaction
         """
@@ -130,8 +132,9 @@ class BasicRobonomicsHandler(Node):
 
         # Preparing a request
         request = RobonomicsROS2SendLaunch.Request()
-        request.param_file_name = param_file_name
+        request.param = param
         request.target_address = target_address
+        request.is_file = is_file
         request.encrypt_status = encrypt_status
 
         # Making a request and wait for its execution

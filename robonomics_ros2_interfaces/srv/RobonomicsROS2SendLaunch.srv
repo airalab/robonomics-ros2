@@ -1,5 +1,6 @@
-string  param_file_name         # Name of file that contains parameter
+string  param                   # Just param string or file name with parameters that need to be uploaded to IPFS
 string  target_address          # Address to be triggered with launch
+bool    is_file         True    # Is a launch param a file that needs to be uploaded to IPFS (default is True)?
 bool    encrypt_status  True    # Check whether the parameter file needs to be encrypted with the target address, default is True
 ---
 string  launch_hash             # Hash of the launch transaction
