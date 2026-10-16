@@ -209,7 +209,7 @@ wrapper implementation for Turtlesim and Robonomics pubsub:
 
 4. You will see the simulator with turtles and ROS 2 logs in the console with IPFS ID, path to directory with IPFS files,
 and Robonomics address. The node starts publish datalogs with turtles position every 2 min. You can check the datalog 
-transactions, using, for example, [Subscan](https://robonomics.subscan.io/) explorer (just enter the Robonomics address). 
+transactions, using, for example, the [Polkadot.js Apps](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fpolkadot.rpc.robonomics.network#/explorer) explorer connected to the Robonomics parachain. 
 
 5. In order for one of the turtle instance to receive the last datalog from another, call the following request to 
 the service (do not forget to insert address):
